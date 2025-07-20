@@ -121,13 +121,13 @@ php bin/console visitor:tail --follow
 Optional filters:
 
 ```bash
-- --filter=bot         # Only bots
-- --filter=utm         # Visitors with UTM
-- --filter=referrer    # Visitors with a referer
-- --filter=new         # First-time visitors
-- --filter=return      # Returning visitors
-- --preview=20         # Show last N entries
-
+--filter=bot         # Only bots
+--filter=utm         # Visitors with UTM
+--filter=referrer    # Visitors with a referer
+--filter=new         # First-time visitors
+--filter=return      # Returning visitors
+--preview=20         # Show last N entries
+```
 ---
 
 ### 🆚 visitor:compare
