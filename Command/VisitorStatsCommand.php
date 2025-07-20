@@ -39,17 +39,39 @@ class VisitorStatsCommand extends Command
         $byUri = [];
         $utmSources = [];
         $utmCampaigns = [];
+        $byHour = [];
+
+        $now = new \DateTimeImmutable();
+        $cutoff = $now->modify('-24 hours');
 
         foreach ($lines as $line) {
             $entry = json_decode($line, true);
             if (!is_array($entry)) continue;
 
-            $day = substr($entry['date'], 0, 10);
+            // Parse date
+            try {
+                $entryTime = new \DateTimeImmutable($entry['date']);
+            } catch (\Exception $e) {
+                continue;
+            }
+
+            // Per day
+            $day = $entryTime->format('Y-m-d');
             $byDate[$day] = ($byDate[$day] ?? 0) + 1;
 
+            // Per hour (last 24h only)
+            if ($entryTime >= $cutoff) {
+                $hour = $entryTime->format('Y-m-d H:00');
+                $byHour[$hour] = ($byHour[$hour] ?? 0) + 1;
+            }
+
+            // Country
             $byCountry[$entry['country']] = ($byCountry[$entry['country']] ?? 0) + 1;
+
+            // URI
             $byUri[$entry['uri']] = ($byUri[$entry['uri']] ?? 0) + 1;
 
+            // UTM
             if (!empty($entry['utm']['utm_source'])) {
                 $utmSources[$entry['utm']['utm_source']] = ($utmSources[$entry['utm']['utm_source']] ?? 0) + 1;
             }
@@ -64,6 +86,10 @@ class VisitorStatsCommand extends Command
 
         $io->section('🗓 Visits Per Day');
         $io->table(['Date', 'Visits'], array_map(null, array_keys($byDate), array_values($byDate)));
+
+        $io->section('⏱ Visits by Hour (last 24h)');
+        ksort($byHour);
+        $io->table(['Hour', 'Visits'], array_map(null, array_keys($byHour), array_values($byHour)));
 
         $io->section('🌍 Top Countries');
         arsort($byCountry);
@@ -91,5 +117,5 @@ class VisitorStatsCommand extends Command
 
         return Command::SUCCESS;
     }
-}
 
+}
