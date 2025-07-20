@@ -44,7 +44,7 @@ class VisitorLoggerSubscriber implements EventSubscriberInterface
         }
 
         // Use relative path to project root
-        $logFile = __DIR__ . '/../../../var/visitor_tracker/visits.log';
+        $logFile = __DIR__ . '/../../../../var/visitor_tracker/visits.log';
 
         @mkdir(dirname($logFile), 0777, true);
         file_put_contents($logFile, json_encode($data) . PHP_EOL, FILE_APPEND);

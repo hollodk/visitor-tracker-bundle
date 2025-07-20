@@ -19,7 +19,7 @@ class VisitorStatsCommand extends Command
     public function __construct()
     {
         parent::__construct();
-        $this->logFile = __DIR__ . '/../../../var/visitor_tracker/visits.log';
+        $this->logFile = __DIR__ . '/../../../../var/visitor_tracker/visits.log';
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
