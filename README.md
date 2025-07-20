@@ -37,6 +37,16 @@ return [
 ];
 ```
 
+```yaml
+// config/services.yaml
+services:
+    Beast\VisitorTrackerBundle\:
+        resource: '../vendor/beast/visitor-tracker-bundle/'
+        exclude: '../vendor/beast/visitor-tracker-bundle/{Entity,Migrations,Tests}'
+        autowire: true
+        autoconfigure: true
+```
+
 ---
 
 ## 📝 Usage
