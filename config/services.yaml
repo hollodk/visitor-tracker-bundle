@@ -1,6 +1,0 @@
-services:
-    App\VisitorTrackerBundle\:
-        resource: '../src/VisitorTrackerBundle/*'
-        exclude: '../src/VisitorTrackerBundle/{Entity,Migrations,Tests}'
-        tags: ['controller.service_arguments']
-

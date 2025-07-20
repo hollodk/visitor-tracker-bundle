@@ -1,6 +1,6 @@
 <?php
 
-namespace App\VisitorTrackerBundle;
+namespace Beast\VisitorTrackerBundle;
 
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 
