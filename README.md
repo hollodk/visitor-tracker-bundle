@@ -1,38 +1,41 @@
 # 🕵️ Beast Visitor Tracker Bundle
 
-A simple and powerful Symfony bundle for tracking visitors on your website. It logs useful visitor data to daily JSON log files and comes with CLI tools to monitor traffic and generate aggregated statistics with charts and summaries.
+A modern, file-based Symfony bundle for tracking and analyzing website visitors — perfect for small projects, privacy-aware apps, and internal tools.
+
+📦 No database required.  
+📈 Includes real-time CLI tools for tailing logs and comparing traffic.  
+🇪🇺 GDPR-friendly and self-contained.
 
 ---
 
-## 📦 Features
+## ✨ Features
 
-- Logs visitor info on each HTTP request:
-  - IP, user-agent, URI, referrer, UTM params
-  - Device type, browser, OS, country, city, ISP
-  - Bot detection and visitor fingerprinting
-- Daily rotating log files
-- Real-time log tailing with filtering options
-- CLI statistics summary with:
-  - Daily/weekly unique and returning visitors
-  - Device, OS, browser usage
-  - Top UTM sources, campaigns, pages, referrers
-  - Country and city distribution
+- ✅ Logs each visitor request to a **daily JSON file**
+- 📍 Captures:
+  - IP, browser, OS, device type
+  - Referrer and UTM parameters
+  - Country, city, ISP (via `ipapi.co`)
+  - Bot detection, visitor fingerprinting
+- 📊 Built-in CLI tools:
+  - `visitor:stats` → analytics dashboard in your terminal
+  - `visitor:tail` → real-time monitoring with filters
+  - `visitor:compare` → compare two date ranges side by side
+- ⚙️ Zero config, no DB, log files stored in `var/visitor_tracker/logs`
+- 🔐 Compatible with cookie-free / consent-aware environments
 
 ---
 
 ## 🚀 Installation
 
-1. Require the bundle in your Symfony project:
-
 ```bash
 composer require beast/visitor-tracker-bundle
+```
 
-Register the bundle if you're not using Symfony Flex:
+If you're not using Symfony Flex, manually register the bundle:
 
 ```php
 // config/bundles.php
 return [
-    // ...
     Beast\VisitorTrackerBundle\BeastVisitorTrackerBundle::class => ['all' => true],
 ];
 ```
@@ -49,104 +52,149 @@ services:
 
 ---
 
-## 📝 Usage
+## 🧠 How It Works
 
-### Visitor Logging
+Every main request triggers the logger:
 
-Once installed, the bundle will automatically log every incoming main request (excluding Symfony internals like /_profiler, etc.).
-
-Log files are saved in:
-
-```bash
-/var/visitor_tracker/logs/YYYY-MM-DD.log
+```php
+Beast\VisitorTrackerBundle\EventSubscriber\VisitorLoggerSubscriber
 ```
 
-Each line is a JSON object containing visitor metadata.
-
----
-
-### 👀 Tail Visitor Logs
+It collects metadata from the request and stores a structured JSON entry in a file like:
 
 ```bash
-php bin/console visitor:tail --follow
+var/visitor_tracker/logs/2025-07-20.log
 ```
 
-Options:
-
-- --date=YYYY-MM-DD – Tail a specific date's log
-- --follow or -f – Real-time mode (like tail -f)
-- --preview=10 – Show last 10 entries
-- --filter=bot|utm|referrer|new|return – Filter specific entries
-
----
-
-## 📈 View Statistics
-
-```bash
-php bin/console visitor:stats
-```
-
-This command parses all log files and shows:
-- Total visits, unique/returning visitors
-- Hourly/daily/weekly traffic
-- Most common browsers, OS, devices
-- Referrers, UTM sources & campaigns
-- Country/city breakdown
-- Top visited pages
-
-Charts and tables are rendered directly in the CLI using SymfonyStyle.
-
----
-
-## 🧠 Example Log Entry
+Example log line:
 
 ```json
 {
   "date": "2025-07-20 12:34:56",
-  "ip": "123.123.123.123",
+  "ip": "123.45.67.89",
   "uri": "/products/42",
-  "user_agent": "Mozilla/5.0...",
-  "visitor_id": "sha1 hash",
+  "user_agent": "...",
+  "visitor_id": "...",
   "referrer": "https://google.com",
   "country": "Germany",
   "city": "Berlin",
-  "isp": "Deutsche Telekom",
   "browser": "Chrome",
   "os": "Windows",
   "device": "desktop",
-  "is_bot": false,
   "utm": {
     "utm_source": "newsletter",
-    "utm_campaign": "summer-sale"
-  }
+    "utm_campaign": "july-sale"
+  },
+  "is_bot": false
 }
 ```
 
 ---
 
-## 📂 File Structure
+## 🧪 CLI Commands
 
-- EventSubscriber/VisitorLoggerSubscriber.php – Logs each request
-- Command/VisitorTailCommand.php – Real-time or previewed visitor log reader
-- Command/VisitorStatsCommand.php – CLI stats and traffic visualizer
+### 📈 visitor:stats
+
+Show a complete traffic overview for the last 30 days:
+
+```bash
+php bin/console visitor:stats
+```
+
+Includes:
+
+- Total / unique / returning visitors
+- Hourly and daily bar charts
+- Top browsers, devices, OS, cities, countries
+- Referrers and UTM breakdowns
 
 ---
 
-## 🛠 Roadmap Ideas
+### 🔍 visitor:tail
 
-- Database driver (e.g., Doctrine or SQLite)
-- Web dashboard for viewing stats
-- More advanced bot/device detection
-- Configurable exclusions
+Real-time log monitoring (like tail -f) with filters:
+
+```bash
+php bin/console visitor:tail --follow
+```
+
+Optional filters:
+
+```bash
+- --filter=bot         # Only bots
+- --filter=utm         # Visitors with UTM
+- --filter=referrer    # Visitors with a referer
+- --filter=new         # First-time visitors
+- --filter=return      # Returning visitors
+- --preview=20         # Show last N entries
+
+---
+
+### 🆚 visitor:compare
+
+Compare two time periods easily:
+
+```bash
+php bin/console visitor:compare
+```
+
+📅 Default: compares last week vs. the week before
+
+Custom ranges:
+
+```bash
+php bin/console visitor:compare \
+  --from=2025-07-01 --to=2025-07-07 \
+  --vs-from=2025-07-08 --vs-to=2025-07-14
+```
+
+Shows:
+
+- 📊 Totals (visits, unique, bots, etc.)
+- 🔼 Changes in devices, browsers, referrers, campaigns
+- 📄 Top pages, countries, UTM performance
+- 🔧 Config & Customization (soon)
+
+Planned:
+
+- Option to change log path
+- Pluggable geo/IP provider
+- Opt-in cookie consent integration
+
+---
+
+## 📂 File Structure
+
+- EventSubscriber/VisitorLoggerSubscriber.php – request tracking
+- Service/VisitorLogHelper.php – shared log parser
+- Command/VisitorStatsCommand.php – full traffic report
+- Command/VisitorTailCommand.php – live tail CLI
+- Command/VisitorCompareCommand.php – compare traffic between time ranges
+
+---
+
+## 💡 Use Cases
+
+- Internal dashboards
+- Monitoring microservices or APIs
+- Marketing traffic audits (UTM, referrer, device data)
+- Quick website insights without setting up GA or Matomo
+- GDPR-friendly analytics for Europe
+
+### 🛡️ Privacy Note
+
+This bundle does not use cookies or persistent identifiers unless you add them. It logs IP + User-Agent + referrer, and uses a hash of those for sessionless fingerprinting.
 
 ---
 
 ## 🧑‍💻 Author
-Michael Holm Kristensen – github.com/hollodk
-Part of the Clubmaster GmbH ecosystem.
+
+Michael Holm Kristensen
+Part of the Clubmaster GmbH ecosystem
+🔗 github.com/hollodk
 
 ---
 
 ## 📄 License
 
-MIT License. Use it freely and modify as needed.
+MIT — Use it freely, fork it proudly.
