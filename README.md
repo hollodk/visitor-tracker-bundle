@@ -1,132 +1,142 @@
-# Visitor Tracker Bundle
+# 🕵️ Beast Visitor Tracker Bundle
 
-A lightweight Symfony 7+ bundle for tracking visitors using file-based logging — no database required.
-
-Track the following:
-
-* ✅ Visit date and time
-* ✅ IP address and country (via `ipapi.co`)
-* ✅ User agent
-* ✅ Visited URI
-* ✅ UTM parameters (`utm_source`, `utm_medium`, `utm_campaign`, etc.)
-* ✅ CLI stats report
+A simple and powerful Symfony bundle for tracking visitors on your website. It logs useful visitor data to daily JSON log files and comes with CLI tools to monitor traffic and generate aggregated statistics with charts and summaries.
 
 ---
 
-## 📦 Installation
+## 📦 Features
 
-1. Add the bundle to your `src/` or use as a local Composer package.
+- Logs visitor info on each HTTP request:
+  - IP, user-agent, URI, referrer, UTM params
+  - Device type, browser, OS, country, city, ISP
+  - Bot detection and visitor fingerprinting
+- Daily rotating log files
+- Real-time log tailing with filtering options
+- CLI statistics summary with:
+  - Daily/weekly unique and returning visitors
+  - Device, OS, browser usage
+  - Top UTM sources, campaigns, pages, referrers
+  - Country and city distribution
 
-> If inside `src/`:
+---
+
+## 🚀 Installation
+
+1. Require the bundle in your Symfony project:
+
+```bash
+composer require beast/visitor-tracker-bundle
+
+Register the bundle if you're not using Symfony Flex:
 
 ```php
 // config/bundles.php
 return [
-    Beast\VisitorTrackerBundle\VisitorTrackingBundle::class => ['all' => true],
+    // ...
+    Beast\VisitorTrackerBundle\BeastVisitorTrackerBundle::class => ['all' => true],
 ];
-```
-
-2. (Optional) Add as a local Composer package:
-
-```json
-// composer.json (in root)
-"repositories": [
-  {
-    "type": "path",
-    "url": "src/VisitorTrackerBundle"
-  }
-]
-```
-
-Then run:
-
-```bash
-composer require hollo/visitor-tracker-bundle:dev-main
 ```
 
 ---
 
-## 🚀 How It Works
+## 📝 Usage
 
-The bundle automatically logs visitor data to:
+### Visitor Logging
 
+Once installed, the bundle will automatically log every incoming main request (excluding Symfony internals like /_profiler, etc.).
+
+Log files are saved in:
+
+```bash
+/var/visitor_tracker/logs/YYYY-MM-DD.log
 ```
-var/visitor_tracker/visits.log
+
+Each line is a JSON object containing visitor metadata.
+
+---
+
+### 👀 Tail Visitor Logs
+
+```bash
+php bin/console visitor:tail --follow
 ```
 
-Each visit is logged as a single JSON line:
+Options:
+
+- --date=YYYY-MM-DD – Tail a specific date's log
+- --follow or -f – Real-time mode (like tail -f)
+- --preview=10 – Show last 10 entries
+- --filter=bot|utm|referrer|new|return – Filter specific entries
+
+---
+
+## 📈 View Statistics
+
+```bash
+php bin/console visitor:stats
+```
+
+This command parses all log files and shows:
+- Total visits, unique/returning visitors
+- Hourly/daily/weekly traffic
+- Most common browsers, OS, devices
+- Referrers, UTM sources & campaigns
+- Country/city breakdown
+- Top visited pages
+
+Charts and tables are rendered directly in the CLI using SymfonyStyle.
+
+---
+
+## 🧠 Example Log Entry
 
 ```json
 {
-  "date": "2025-07-20 21:30:00",
-  "ip": "1.2.3.4",
+  "date": "2025-07-20 12:34:56",
+  "ip": "123.123.123.123",
+  "uri": "/products/42",
+  "user_agent": "Mozilla/5.0...",
+  "visitor_id": "sha1 hash",
+  "referrer": "https://google.com",
   "country": "Germany",
-  "uri": "/promo",
-  "user_agent": "...",
+  "city": "Berlin",
+  "isp": "Deutsche Telekom",
+  "browser": "Chrome",
+  "os": "Windows",
+  "device": "desktop",
+  "is_bot": false,
   "utm": {
-    "utm_source": "facebook",
-    "utm_campaign": "summer_sale"
+    "utm_source": "newsletter",
+    "utm_campaign": "summer-sale"
   }
 }
 ```
 
 ---
 
-## 🔎 CLI Stats Command
+## 📂 File Structure
 
-Analyze traffic with:
-
-```bash
-php bin/console visitor:stats
-```
-
-The command displays:
-
-* Total visits
-* Daily breakdown
-* Top UTM sources and campaigns
-* Top countries
-* Most visited URIs
+- EventSubscriber/VisitorLoggerSubscriber.php – Logs each request
+- Command/VisitorTailCommand.php – Real-time or previewed visitor log reader
+- Command/VisitorStatsCommand.php – CLI stats and traffic visualizer
 
 ---
 
-## 📁 File Structure
+## 🛠 Roadmap Ideas
 
-```
-src/VisitorTrackerBundle/
-├── Command/
-│   └── VisitorStatsCommand.php
-├── EventSubscriber/
-│   └── VisitorLoggerSubscriber.php
-├── VisitorTrackingBundle.php
-└── composer.json
-```
+- Database driver (e.g., Doctrine or SQLite)
+- Web dashboard for viewing stats
+- More advanced bot/device detection
+- Configurable exclusions
 
 ---
 
-## 🔧 Configuration
-
-* No config is required
-* UTM detection works automatically if visitors use tracking links
-* Country lookup is done via [ipapi.co](https://ipapi.co) using the free tier
+## 🧑‍💻 Author
+Michael Holm Kristensen – github.com/hollodk
+Part of the Clubmaster GmbH ecosystem.
 
 ---
 
-## ✅ Requirements
+## 📄 License
 
-* PHP 8.1+
-* Symfony 6.4 or 7.x
-* Internet access for IP geolocation
-
----
-
-## 📘 License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
----
-
-## 👨‍💻 Author
-
-Made with ❤️ by [Michael Holm Kristensen](https://github.com/holloDK)
-
+MIT License. Use it freely and modify as needed.
