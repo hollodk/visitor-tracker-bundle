@@ -1,0 +1,26 @@
+{
+    "name": "beast/visitor-tracker-bundle",
+    "description": "A simple Symfony bundle for visitor tracking and CLI analytics",
+    "type": "symfony-bundle",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Michael Holm Kristensen",
+            "email": "hollo@hollo.dk"
+        }
+    ],
+    "require": {
+        "php": ">=8.0",
+        "symfony/framework-bundle": "^5.4 || ^6.0 || ^7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\VisitorTrackerBundle\\": "./"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "1.0-dev"
+        }
+    }
+}
