@@ -1,10 +1,10 @@
 # 🕵️ Beast Visitor Tracker Bundle
 
-A modern, privacy-aware Symfony bundle for tracking and analyzing visitors on your website or app.  
+A modern, privacy-aware Symfony bundle for tracking and analyzing visitors on your website or app.
 No cookies. No JavaScript. No third-party analytics. Just clean, structured logs and CLI insights.
 
-📦 File-based, no database required  
-📈 Real-time CLI tools: live traffic, historical stats, weekly comparisons  
+📦 File-based, no database required
+📈 Real-time CLI tools: live traffic, historical stats, weekly comparisons
 🛡️ GDPR/CCPA friendly by default
 
 ---
@@ -49,6 +49,13 @@ services:
         exclude: '../vendor/beast/visitor-tracker-bundle/{Entity,Migrations,Tests}'
         autowire: true
         autoconfigure: true
+```
+
+```yaml
+beast_visitor_tracker:
+  geo_enabled: false         # Disable geo API calls for privacy
+  ip_anonymize: true         # Mask last part of IP address
+  log_dir: '%kernel.project_dir%/var/visitor_tracker/logs'
 ```
 
 ---

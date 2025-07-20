@@ -8,6 +8,15 @@ use Symfony\Component\HttpKernel\KernelEvents;
 
 class VisitorLoggerSubscriber implements EventSubscriberInterface
 {
+    private bool $geoEnabled;
+    private bool $ipAnonymize;
+
+    public function __construct(bool $geoEnabled = true, bool $ipAnonymize = false)
+    {
+        $this->geoEnabled = $geoEnabled;
+        $this->ipAnonymize = $ipAnonymize;
+    }
+
     public function onKernelRequest(RequestEvent $event): void
     {
         $request = $event->getRequest();
@@ -19,7 +28,12 @@ class VisitorLoggerSubscriber implements EventSubscriberInterface
         $ip = $request->getClientIp();
         $ua = $request->headers->get('User-Agent', '');
 
+        if ($this->ipAnonymize && $ip) {
+            $ip = preg_replace('/\.\d+$/', '.0', $ip); // IPv4: anonymize last block
+        }
+
         $visitorId = sha1(($ip ?? '') . $ua);
+
         $data = [
             'date' => (new \DateTime())->format('Y-m-d H:i:s'),
             'ip' => $ip,
@@ -38,18 +52,20 @@ class VisitorLoggerSubscriber implements EventSubscriberInterface
         ];
 
         // 🌍 Geo Data (country, city, isp)
-        try {
-            $geoRaw = @file_get_contents("https://ipapi.co/{$ip}/json/");
-            if ($geoRaw !== false) {
-                $geo = json_decode($geoRaw, true);
-                if (is_array($geo)) {
-                    $data['country'] = $geo['country_name'] ?? 'unknown';
-                    $data['city'] = $geo['city'] ?? null;
-                    $data['isp'] = $geo['org'] ?? null;
+        if ($this->geoEnabled && $ip) {
+            try {
+                $geoRaw = @file_get_contents("https://ipapi.co/{$ip}/json/");
+                if ($geoRaw !== false) {
+                    $geo = json_decode($geoRaw, true);
+                    if (is_array($geo)) {
+                        $data['country'] = $geo['country_name'] ?? 'unknown';
+                        $data['city'] = $geo['city'] ?? null;
+                        $data['isp'] = $geo['org'] ?? null;
+                    }
                 }
+            } catch (\Throwable) {
+                // silent
             }
-        } catch (\Throwable) {
-            // silent
         }
 
         // 📣 UTM Parameters
