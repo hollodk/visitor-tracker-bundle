@@ -1,10 +1,11 @@
 # 🕵️ Beast Visitor Tracker Bundle
 
-A modern, file-based Symfony bundle for tracking and analyzing website visitors — perfect for small projects, privacy-aware apps, and internal tools.
+A modern, privacy-aware Symfony bundle for tracking and analyzing visitors on your website or app.  
+No cookies. No JavaScript. No third-party analytics. Just clean, structured logs and CLI insights.
 
-📦 No database required.  
-📈 Includes real-time CLI tools for tailing logs and comparing traffic.  
-🇪🇺 GDPR-friendly and self-contained.
+📦 File-based, no database required  
+📈 Real-time CLI tools: live traffic, historical stats, weekly comparisons  
+🛡️ GDPR/CCPA friendly by default
 
 ---
 
@@ -181,9 +182,39 @@ Planned:
 - Quick website insights without setting up GA or Matomo
 - GDPR-friendly analytics for Europe
 
-### 🛡️ Privacy Note
+---
 
-This bundle does not use cookies or persistent identifiers unless you add them. It logs IP + User-Agent + referrer, and uses a hash of those for sessionless fingerprinting.
+## 🔐 Privacy & Compliance
+
+BeastVisitorTrackerBundle is designed to respect user privacy while still providing meaningful insights.
+
+### ✅ Good for:
+
+- GDPR/CCPA-sensitive environments
+- Internal dashboards, B2B tools, intranets
+- Sites that avoid cookie banners or prefer server-only analytics
+
+### 🔍 What we collect:
+
+- IP address (used in memory for hashing & optional geolocation)
+- User-Agent (used for device/browser detection)
+- Referrer, UTM campaign data
+- URI path (page visited)
+
+### ❗ Third-party caveat:
+
+If IP geolocation is enabled, IPs are sent to:
+
+- ipapi.co by default (privacy policy applies)
+
+You can disable or switch this (configurable in future versions).
+
+### 🛡️ No:
+
+- No cookies
+- No JavaScript trackers
+- No personal data (name, email, etc.)
+- No session tracking (unless added manually)
 
 ---
 
