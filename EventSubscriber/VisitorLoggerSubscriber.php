@@ -35,6 +35,7 @@ class VisitorLoggerSubscriber implements EventSubscriberInterface
             'date' => (new \DateTime())->format('Y-m-d H:i:s'),
             'ip' => $ip,
             'uri' => $request->getRequestUri(),
+            'method' => $request->getMethod(),
             'user_agent' => $ua,
             'visitor_id' => $visitorId,
             'referrer' => $request->headers->get('referer', null),

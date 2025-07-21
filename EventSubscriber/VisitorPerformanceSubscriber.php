@@ -46,11 +46,13 @@ class VisitorPerformanceSubscriber implements EventSubscriberInterface
 
         $this->buffer->updateLastEntry(function (array $entry) use ($request, $response, $duration) {
             $entry['duration_ms'] = $duration;
-            $entry['status_code'] = $response->getStatusCode();
+            $entry['status_code'] = $response instanceof Response ? $response->getStatusCode() : null;
             $entry['route'] = $request->attributes->get('_route');
             $entry['memory_usage_bytes'] = memory_get_peak_usage(true);
             $entry['auth'] = $this->tokenStorage?->getToken()?->getUser() ? 'user' : 'anon';
             $entry['content_type'] = $response->headers->get('Content-Type');
+            $entry['response_size_bytes'] = strlen($response->getContent() ?? '');
+
             return $entry;
         });
 
