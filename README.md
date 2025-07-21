@@ -4,7 +4,7 @@ A modern, privacy-aware Symfony bundle for tracking and analyzing visitors on yo
 No cookies. No JavaScript. No third-party analytics. Just clean, structured logs and CLI insights.
 
 📦 File-based, no database required
-📈 Real-time CLI tools: live traffic, historical stats, weekly comparisons
+📈 Real-time CLI tools: live traffic, slow route detection, memory usage, historical stats, weekly comparisons
 🛡️ GDPR/CCPA friendly by default
 
 ---
@@ -42,7 +42,7 @@ return [
 ```
 
 ```yaml
-// config/services.yaml
+# config/services.yaml
 services:
     Beast\VisitorTrackerBundle\:
         resource: '../vendor/beast/visitor-tracker-bundle/'
@@ -68,18 +68,27 @@ Every main request triggers the logger:
 Beast\VisitorTrackerBundle\EventSubscriber\VisitorLoggerSubscriber
 ```
 
-It collects metadata from the request and stores a structured JSON entry in a file like:
+...and at termination, enriches the last matching log entry with:
+
+* request duration
+* memory usage
+* HTTP status
+* route name
+* content type
+* authentication status
+
+Log entries are stored per day:
 
 ```bash
-var/visitor_tracker/logs/2025-07-20.log
+var/visitor_tracker/logs/YYYY-MM-DD.log
 ```
 
-Example log line:
+Example entry:
 
 ```json
 {
   "date": "2025-07-20 12:34:56",
-  "ip": "123.45.67.89",
+  "ip": "123.45.67.0",
   "uri": "/products/42",
   "user_agent": "...",
   "visitor_id": "...",
@@ -93,6 +102,11 @@ Example log line:
     "utm_source": "newsletter",
     "utm_campaign": "july-sale"
   },
+  "duration_ms": 87.4,
+  "memory_usage_bytes": 8388608,
+  "status_code": 200,
+  "route": "product_show",
+  "auth": "user",
   "is_bot": false
 }
 ```
@@ -101,9 +115,9 @@ Example log line:
 
 ## 🧪 CLI Commands
 
-### 📈 visitor:stats
+### 📈 `visitor:stats`
 
-Show a complete traffic overview for the last 30 days:
+Full dashboard for the last 30 days.
 
 ```bash
 php bin/console visitor:stats
@@ -111,125 +125,119 @@ php bin/console visitor:stats
 
 Includes:
 
-- Total / unique / returning visitors
-- Hourly and daily bar charts
-- Top browsers, devices, OS, cities, countries
-- Referrers and UTM breakdowns
+* Total / unique / returning / bot visitors
+* Hourly & daily charts
+* Country, city, browser, device, OS, UTM, referrer stats
+* Top visited pages
+* Weekly aggregates
 
 ---
 
-### 🔍 visitor:tail
+### 🔍 `visitor:tail`
 
-Real-time log monitoring (like tail -f) with filters:
+Live monitor logs like `tail -f` with filters:
 
 ```bash
 php bin/console visitor:tail --follow
 ```
 
-Optional filters:
+Available options:
 
 ```bash
---filter=bot         # Only bots
---filter=utm         # Visitors with UTM
---filter=referrer    # Visitors with a referer
---filter=new         # First-time visitors
---filter=return      # Returning visitors
---preview=20         # Show last N entries
+--filter=bot|utm|referrer|new|return
+--preview=20
+--date=YYYY-MM-DD
 ```
+
 ---
 
-### 🆚 visitor:compare
+### 🆚 `visitor:compare`
 
-Compare two time periods easily:
+Compare two periods side-by-side:
 
 ```bash
 php bin/console visitor:compare
 ```
 
-📅 Default: compares last week vs. the week before
+Supports `--from`, `--to`, `--vs-from`, `--vs-to`, `--top=5`
 
-Custom ranges:
+---
+
+### 🐢 `visitor:slow`
+
+Find the slowest routes or URIs based on average or max duration:
 
 ```bash
-php bin/console visitor:compare \
-  --from=2025-07-01 --to=2025-07-07 \
-  --vs-from=2025-07-08 --vs-to=2025-07-14
+php bin/console visitor:slow
 ```
 
-Shows:
+Options:
 
-- 📊 Totals (visits, unique, bots, etc.)
-- 🔼 Changes in devices, browsers, referrers, campaigns
-- 📄 Top pages, countries, UTM performance
-- 🔧 Config & Customization (soon)
+* `--from`, `--to`: date range
+* `--sort=avg|max|count`
+* `--auth=user|anon`
+* `--status=200`
+* `--uri=/product`
+* `--top=10`
 
-Planned:
+---
 
-- Option to change log path
-- Pluggable geo/IP provider
-- Opt-in cookie consent integration
+### 🧠 `visitor:memory`
+
+Check memory usage per route or URI:
+
+```bash
+php bin/console visitor:memory
+```
+
+Options:
+
+* `--from`, `--to`
+* `--sort=avg|max|count`
+* `--top=10`
 
 ---
 
 ## 📂 File Structure
 
-- EventSubscriber/VisitorLoggerSubscriber.php – request tracking
-- Service/VisitorLogHelper.php – shared log parser
-- Command/VisitorStatsCommand.php – full traffic report
-- Command/VisitorTailCommand.php – live tail CLI
-- Command/VisitorCompareCommand.php – compare traffic between time ranges
+* `EventSubscriber/VisitorLoggerSubscriber.php` → tracks core visitor info
+* `EventSubscriber/VisitorPerformanceSubscriber.php` → enriches with duration, memory, etc.
+* `Service/VisitorLogHelper.php` → parser/aggregator
+* `Command/Visitor*.php` → CLI tools
 
 ---
 
 ## 💡 Use Cases
 
-- Internal dashboards
-- Monitoring microservices or APIs
-- Marketing traffic audits (UTM, referrer, device data)
-- Quick website insights without setting up GA or Matomo
-- GDPR-friendly analytics for Europe
+* Lightweight, private web analytics
+* Monitoring APIs/microservices
+* Campaign/UTM effectiveness analysis
+* Debugging slow or memory-hungry routes
+* GDPR-safe internal dashboards
 
 ---
 
 ## 🔐 Privacy & Compliance
 
-BeastVisitorTrackerBundle is designed to respect user privacy while still providing meaningful insights.
+We collect only:
 
-### ✅ Good for:
+* IP (anonymized if enabled)
+* User-Agent
+* UTM/referrer
+* Route/URI & status
+* Duration & memory usage (no personal data)
 
-- GDPR/CCPA-sensitive environments
-- Internal dashboards, B2B tools, intranets
-- Sites that avoid cookie banners or prefer server-only analytics
-
-### 🔍 What we collect:
-
-- IP address (used in memory for hashing & optional geolocation)
-- User-Agent (used for device/browser detection)
-- Referrer, UTM campaign data
-- URI path (page visited)
-
-### ❗ Third-party caveat:
-
-If IP geolocation is enabled, IPs are sent to:
-
-- ipapi.co by default (privacy policy applies)
-
-You can disable or switch this (configurable in future versions).
-
-### 🛡️ No:
-
-- No cookies
-- No JavaScript trackers
-- No personal data (name, email, etc.)
-- No session tracking (unless added manually)
+✅ No cookies, sessions, or user tracking unless you add it manually.  
+✅ Fully usable without consent banners.  
+❗ Geolocation via `ipapi.co` can be disabled.
 
 ---
 
-## 🧑‍💻 Author
+## 👤 Author
 
-Michael Holm Kristensen
-Part of the Clubmaster GmbH ecosystem
-🔗 github.com/hollodk
+Michael Holm Kristensen  
+Part of the Clubmaster GmbH ecosystem  
+🔗 [github.com/hollodk](https://github.com/hollodk)
 
 ---
 
