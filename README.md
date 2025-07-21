@@ -46,16 +46,7 @@ return [
 ```
 
 ```yaml
-# config/services.yaml
-services:
-    Beast\VisitorTrackerBundle\:
-        resource: '../vendor/beast/visitor-tracker-bundle/'
-        exclude: '../vendor/beast/visitor-tracker-bundle/{Entity,Migrations,Tests}'
-        autowire: true
-        autoconfigure: true
-```
-
-```yaml
+// config/packages/beast_visitor_tracker.yaml
 beast_visitor_tracker:
   geo_enabled: false         # Disable geo API calls for privacy
   ip_anonymize: true         # Mask last part of IP address
