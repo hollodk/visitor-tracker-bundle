@@ -2,6 +2,7 @@
 
 namespace Beast\VisitorTrackerBundle\Command;
 
+use Beast\VisitorTrackerBundle\Service\VisitorLogConfig;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -17,6 +18,11 @@ class VisitorTailCommand extends Command
 {
     private array $seenVisitors = [];
 
+    public function __construct(private VisitorLogConfig $config)
+    {
+        parent::__construct();
+    }
+
     protected function configure(): void
     {
         $this
@@ -30,7 +36,7 @@ class VisitorTailCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
         $date = $input->getOption('date');
-        $logFile = __DIR__ . "/../../../../var/visitor_tracker/logs/{$date}.log";
+        $logFile = $this->config->getTodayLogFile();
 
         if (!file_exists($logFile)) {
             $io->error("No log file found for: $date");
@@ -56,11 +62,15 @@ class VisitorTailCommand extends Command
             return Command::FAILURE;
         }
 
+        $lastLineCount = 0;
+
         if ($follow) {
             while (true) {
                 clearstatcache(true, $logFile);
                 $lines = file($logFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
                 $newLines = array_slice($lines, $lastLineCount);
+
                 $lastLineCount = count($lines);
 
                 foreach ($newLines as $line) {
@@ -70,17 +80,6 @@ class VisitorTailCommand extends Command
                 if (!$follow) break;
                 usleep(500000); // 500ms
             }
-            /**
-            fseek($handle, 0, SEEK_END);
-            while (true) {
-                $line = fgets($handle);
-                if ($line !== false) {
-                    $this->renderEntry($line, $output, $filter);
-                } else {
-                    usleep(200000); // 200ms
-                }
-            }
-             */
         } else {
             while (($line = fgets($handle)) !== false) {
                 $this->renderEntry($line, $output, $filter);
@@ -108,30 +107,45 @@ class VisitorTailCommand extends Command
         if ($filter === 'return' && !$isReturning) return;
 
         $flag = $entry['country_code'] ?? '🌍';
-        $ref = $entry['referer'] ?? 'direct';
+        $ref = $entry['referer'] ?? '';
         $utm = $entry['utm']['utm_campaign'] ?? '';
         $browser = $entry['browser'] ?? '';
         $os = $entry['os'] ?? '';
         $device = $entry['device_type'] ?? '';
         $city = $entry['city'] ?? '';
         $isp = $entry['isp'] ?? '';
-        $visitorType = $isReturning ? 'Returning' : 'First time';
-        $timestamp = $entry['date'] ?? '';
+        $country = $entry['country'] ?? 'Unknown';
+        $visitorType = $isReturning ? 'Returning' : 'New';
+        $timestamp = isset($entry['date']) ? (new \DateTimeImmutable($entry['date']))->format('H:i') : '--:--';
+        $uri = $entry['uri'] ?? '';
 
-        $output->writeln("");
-        $output->writeln("🕒 <info>{$timestamp}</info>");
         if ($isBot) {
-            $output->writeln("🤖 <comment>BOT DETECTED:</comment> " . substr($entry['user_agent'], 0, 80));
+            $output->writeln("🤖 {$timestamp} BOT detected: " . substr($entry['user_agent'] ?? '', 0, 80));
         } else {
-            $output->writeln("$flag [{$entry['country']}] <info>{$browser}</info> on <comment>{$os}</comment> | <info>{$device}</info>");
-            $output->writeln("➡️  <fg=blue>{$entry['uri']}</>");
-            if (!empty($utm)) {
-                $output->writeln("📢 utm_campaign: <fg=yellow>{$utm}</>");
-            }
-            if (!empty($ref)) {
-                $output->writeln("🧭 Referrer: <fg=cyan>{$ref}</>");
-            }
-            $output->writeln("📡 {$isp} | {$city} | <fg=magenta>{$visitorType} Visitor</>");
+            $line1 = sprintf(
+                "🕒 %s [%s] %s/%s/%s | %s",
+                $timestamp,
+                $visitorType,
+                $browser,
+                $os,
+                $device,
+                $uri
+            );
+
+            $line2 = sprintf(
+                "%s %s (%s) 📡 %s",
+                $flag,
+                $country,
+                $city ?: 'n/a',
+                $isp ?: 'Unknown ISP'
+            );
+
+            if ($utm) $line2 .= " 📢 $utm";
+            if ($ref) $line2 .= " 🔗 $ref";
+
+            $output->writeln($line1);
+            $output->writeln($line2);
         }
     }
+
 }

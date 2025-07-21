@@ -2,6 +2,7 @@
 
 namespace Beast\VisitorTrackerBundle\EventSubscriber;
 
+use Beast\VisitorTrackerBundle\Service\VisitorLogBuffer;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -11,7 +12,7 @@ class VisitorLoggerSubscriber implements EventSubscriberInterface
     private bool $geoEnabled;
     private bool $ipAnonymize;
 
-    public function __construct(bool $geoEnabled = true, bool $ipAnonymize = false)
+    public function __construct(private VisitorLogBuffer $buffer, bool $geoEnabled = true, bool $ipAnonymize = false)
     {
         $this->geoEnabled = $geoEnabled;
         $this->ipAnonymize = $ipAnonymize;
@@ -114,13 +115,7 @@ class VisitorLoggerSubscriber implements EventSubscriberInterface
             $data['is_bot'] = true;
         }
 
-        // 💾 Write log
-        $today = (new \DateTime())->format('Y-m-d');
-        $logDir = __DIR__ . '/../../../../var/visitor_tracker/logs';
-        $logFile = "$logDir/$today.log";
-
-        @mkdir($logDir, 0777, true);
-        file_put_contents($logFile, json_encode($data) . PHP_EOL, FILE_APPEND);
+        $this->buffer->addEntry($data);
     }
 
     public static function getSubscribedEvents(): array

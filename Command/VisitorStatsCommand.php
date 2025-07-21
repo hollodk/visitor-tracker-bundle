@@ -3,6 +3,7 @@
 namespace Beast\VisitorTrackerBundle\Command;
 
 use Beast\VisitorTrackerBundle\Service\VisitorLogHelper;
+use Beast\VisitorTrackerBundle\Service\VisitorLogConfig;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -17,10 +18,10 @@ class VisitorStatsCommand extends Command
 {
     private string $logPath;
 
-    public function __construct()
+    public function __construct(private VisitorLogConfig $config)
     {
         parent::__construct();
-        $this->logPath = __DIR__ . '/../../../../var/visitor_tracker/logs';
+        $this->logPath = $this->config->getLogDir();
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
