@@ -3,19 +3,15 @@
 namespace Beast\VisitorTrackerBundle\EventSubscriber;
 
 use Beast\VisitorTrackerBundle\Service\VisitorLogBuffer;
+use Beast\VisitorTrackerBundle\Service\VisitorSettings;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 class VisitorLoggerSubscriber implements EventSubscriberInterface
 {
-    private bool $geoEnabled;
-    private bool $ipAnonymize;
-
-    public function __construct(private VisitorLogBuffer $buffer, bool $geoEnabled = true, bool $ipAnonymize = false)
+    public function __construct(private VisitorLogBuffer $buffer, private VisitorSettings $settings)
     {
-        $this->geoEnabled = $geoEnabled;
-        $this->ipAnonymize = $ipAnonymize;
     }
 
     public function onKernelRequest(RequestEvent $event): void
@@ -29,7 +25,7 @@ class VisitorLoggerSubscriber implements EventSubscriberInterface
         $ip = $request->getClientIp();
         $ua = $request->headers->get('User-Agent', '');
 
-        if ($this->ipAnonymize && $ip) {
+        if ($this->settings->isIpAnonymize() && $ip) {
             $ip = preg_replace('/\.\d+$/', '.0', $ip); // IPv4: anonymize last block
         }
 
@@ -53,7 +49,7 @@ class VisitorLoggerSubscriber implements EventSubscriberInterface
         ];
 
         // 🌍 Geo Data (country, city, isp)
-        if ($this->geoEnabled && $ip) {
+        if ($this->settings->isGeoEnabled() && $ip) {
             try {
                 $geoRaw = @file_get_contents("https://ipapi.co/{$ip}/json/");
                 if ($geoRaw !== false) {

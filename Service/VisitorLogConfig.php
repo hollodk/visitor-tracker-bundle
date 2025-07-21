@@ -2,15 +2,17 @@
 
 namespace Beast\VisitorTrackerBundle\Service;
 
+use Beast\VisitorTrackerBundle\Service\VisitorSettings;
+
 class VisitorLogConfig
 {
     public function __construct(
-        private readonly string $logDir,
+        private VisitorSettings $settings,
     ) {}
 
     public function getLogDir(): string
     {
-        return rtrim($this->logDir, '/');
+        return rtrim($this->settings->getLogDir(), '/');
     }
 
     public function getLogFileForDate(\DateTimeInterface $date): string

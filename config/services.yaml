@@ -4,8 +4,3 @@ services:
         exclude: '../vendor/beast/visitor-tracker-bundle/{Entity,Migrations,Tests}'
         autowire: true
         autoconfigure: true
-
-
-    Beast\VisitorTrackerBundle\Service\VisitorLogConfig:
-        arguments:
-            $logDir: '%kernel.project_dir%/var/visitor_tracker/logs'
