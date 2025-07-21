@@ -4,4 +4,3 @@ services:
         exclude: '../vendor/beast/visitor-tracker-bundle/{Entity,Migrations,Tests}'
         autowire: true
         autoconfigure: true
-
