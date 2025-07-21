@@ -45,22 +45,6 @@ class VisitorLoggerSubscriber implements EventSubscriberInterface
             $referrerPath = $parsed['path'] ?? null;
         }
 
-        $sessionId = null;
-        $landingPage = null;
-
-        if ($this->settings->isSessionEnabled()) {
-            // Session ID
-            $session = $request->getSession();
-            $sessionId = $session->getId();
-
-            // Landing page: store only on first hit
-            if (!$session->has('landing_page')) {
-                $session->set('landing_page', $request->getRequestUri());
-            }
-
-            $landingPage = $session->get('landing_page');
-        }
-
         $data = [
             'date' => (new \DateTime())->format('Y-m-d H:i:s'),
             'ip' => $ip,
@@ -80,8 +64,6 @@ class VisitorLoggerSubscriber implements EventSubscriberInterface
             'is_bot' => false,
             'utm' => [],
             'locale' => $locale,
-            'session_id' => $sessionId,
-            'landing_page' => $landingPage,
         ];
 
         // 🌍 Geo Data

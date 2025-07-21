@@ -27,14 +27,12 @@ class BeastVisitorTrackerExtension extends Extension
 
         // Register parameters if you still want them globally
         $container->setParameter('beast_visitor_tracker.geo_enabled', $config['geo_enabled']);
-        $container->setParameter('beast_visitor_tracker.session_enabled', $config['session_enabled']);
         $container->setParameter('beast_visitor_tracker.ip_anonymize', $config['ip_anonymize']);
         $container->setParameter('beast_visitor_tracker.log_dir', $config['log_dir']);
 
         // Register VisitorSettings service
         $definition = new Definition(VisitorSettings::class);
         $definition->setArgument(0, $config['geo_enabled']);
-        $definition->setArgument(1, $config['session_enabled']);
         $definition->setArgument(2, $config['ip_anonymize']);
         $definition->setArgument(3, $config['log_dir']);
 
