@@ -33,8 +33,8 @@ class BeastVisitorTrackerExtension extends Extension
         // Register VisitorSettings service
         $definition = new Definition(VisitorSettings::class);
         $definition->setArgument(0, $config['geo_enabled']);
-        $definition->setArgument(2, $config['ip_anonymize']);
-        $definition->setArgument(3, $config['log_dir']);
+        $definition->setArgument(1, $config['ip_anonymize']);
+        $definition->setArgument(2, $config['log_dir']);
 
         $definition->setPublic(true); // optional
         $container->setDefinition(VisitorSettings::class, $definition);
