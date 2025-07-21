@@ -1,4 +1,0 @@
-beast_visitor_tracker:
-    geo_enabled: false         # Set to false to disable IP geolocation
-    ip_anonymize: false        # Set to true to mask the last IP block (e.g., 123.45.67.89 → 123.45.67.0)
-    log_dir: '%kernel.project_dir%/var/visitor_tracker/logs' # Custom path for log files
