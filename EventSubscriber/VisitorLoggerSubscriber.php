@@ -31,6 +31,29 @@ class VisitorLoggerSubscriber implements EventSubscriberInterface
 
         $visitorId = sha1(($ip ?? '') . $ua);
 
+        // Locale from Accept-Language
+        $localeHeader = $request->headers->get('Accept-Language');
+        $locale = $localeHeader ? substr($localeHeader, 0, 5) : null;
+
+        // Referrer breakdown
+        $referrerUrl = $request->headers->get('referer', null);
+        $referrerDomain = null;
+        $referrerPath = null;
+        if ($referrerUrl) {
+            $parsed = parse_url($referrerUrl);
+            $referrerDomain = $parsed['host'] ?? null;
+            $referrerPath = $parsed['path'] ?? null;
+        }
+
+        // Session ID
+        $session = $request->getSession();
+        $sessionId = $session->getId();
+
+        // Landing page: store only on first hit
+        if (!$session->has('landing_page')) {
+            $session->set('landing_page', $request->getRequestUri());
+        }
+
         $data = [
             'date' => (new \DateTime())->format('Y-m-d H:i:s'),
             'ip' => $ip,
@@ -38,7 +61,9 @@ class VisitorLoggerSubscriber implements EventSubscriberInterface
             'method' => $request->getMethod(),
             'user_agent' => $ua,
             'visitor_id' => $visitorId,
-            'referrer' => $request->headers->get('referer', null),
+            'referrer' => $referrerUrl,
+            'referrer_domain' => $referrerDomain,
+            'referrer_path' => $referrerPath,
             'country' => 'unknown',
             'city' => null,
             'isp' => null,
@@ -47,9 +72,12 @@ class VisitorLoggerSubscriber implements EventSubscriberInterface
             'device' => null,
             'is_bot' => false,
             'utm' => [],
+            'locale' => $locale,
+            'session_id' => $sessionId,
+            'landing_page' => $session->get('landing_page'),
         ];
 
-        // 🌍 Geo Data (country, city, isp)
+        // 🌍 Geo Data
         if ($this->settings->isGeoEnabled() && $ip) {
             try {
                 $geoRaw = @file_get_contents("https://ipapi.co/{$ip}/json/");
@@ -74,7 +102,7 @@ class VisitorLoggerSubscriber implements EventSubscriberInterface
             }
         }
 
-        // 🧠 UA Parsing (basic)
+        // 🧠 UA Parsing
         if (preg_match('/(Mobile|Android|iPhone|iPad|iPod)/i', $ua)) {
             $data['device'] = 'mobile';
         } elseif (preg_match('/Tablet|iPad/i', $ua)) {
@@ -107,9 +135,30 @@ class VisitorLoggerSubscriber implements EventSubscriberInterface
             $data['os'] = 'iOS';
         }
 
-        // 🤖 Bot Detection (basic)
-        if (preg_match('/bot|crawl|spider|slurp|curl|wget/i', $ua)) {
-            $data['is_bot'] = true;
+        // 🤖 Bot Detection (improved)
+        $uaLower = strtolower($ua);
+        $botSignatures = [
+            'bot', 'crawl', 'slurp', 'spider', 'curl', 'wget', 'python', 'scrapy', 'feedfetcher',
+            'mediapartners', 'facebookexternalhit', 'adsbot', 'google', 'bingpreview', 'ahrefs',
+            'semrush', 'mj12bot', 'yandex', 'pinterest', 'duckduckbot', 'telegrambot',
+            'linkedinbot', 'whatsapp', 'twitterbot', 'applebot'
+        ];
+
+        foreach ($botSignatures as $signature) {
+            if (str_contains($uaLower, $signature)) {
+                $data['is_bot'] = true;
+                $data['bot_name'] = $signature;
+                break;
+            }
+        }
+
+        // 🧪 Additional headers-based heuristics
+        if (
+            $request->headers->get('X-Requested-With') === 'XMLHttpRequest' ||
+            stripos($request->headers->get('Accept', ''), 'application/json') !== false
+        ) {
+            // Could be AJAX – not necessarily a bot, but can be noted if needed
+            $data['ajax_request'] = true;
         }
 
         $this->buffer->addEntry($data);
@@ -122,3 +171,4 @@ class VisitorLoggerSubscriber implements EventSubscriberInterface
         ];
     }
 }
+

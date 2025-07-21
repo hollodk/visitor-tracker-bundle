@@ -49,6 +49,7 @@ return [
 // config/packages/beast_visitor_tracker.yaml
 beast_visitor_tracker:
   geo_enabled: false         # Disable geo API calls for privacy
+  session_enabled: false     # Disable session tracking
   ip_anonymize: true         # Mask last part of IP address
   log_dir: '%kernel.project_dir%/var/visitor_tracker/logs'
 ```

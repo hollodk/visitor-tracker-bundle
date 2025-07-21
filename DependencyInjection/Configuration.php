@@ -14,6 +14,7 @@ class Configuration implements ConfigurationInterface
         $treeBuilder->getRootNode()
             ->children()
                 ->booleanNode('geo_enabled')->defaultFalse()->end()
+                ->booleanNode('session_enabled')->defaultFalse()->end()
                 ->booleanNode('ip_anonymize')->defaultFalse()->end()
                 ->scalarNode('log_dir')->defaultValue('%kernel.project_dir%/var/visitor_tracker/logs')->end()
             ->end();
