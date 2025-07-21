@@ -11,17 +11,21 @@ No cookies. No JavaScript. No third-party analytics. Just clean, structured logs
 
 ## ✨ Features
 
-- ✅ Logs each visitor request to a **daily JSON file**
+- ✅ Logs each visitor request to a daily JSON file
 - 📍 Captures:
   - IP, browser, OS, device type
   - Referrer and UTM parameters
-  - Country, city, ISP (via `ipapi.co`)
+  - Country, city, ISP (via ipapi.co)
   - Bot detection, visitor fingerprinting
+  - Request duration, memory usage, route name
+  - Auth status and HTTP response code
 - 📊 Built-in CLI tools:
-  - `visitor:stats` → analytics dashboard in your terminal
-  - `visitor:tail` → real-time monitoring with filters
-  - `visitor:compare` → compare two date ranges side by side
-- ⚙️ Zero config, no DB, log files stored in `var/visitor_tracker/logs`
+  - visitor:stats → analytics dashboard in your terminal
+  - visitor:tail → real-time monitoring with filters
+  - visitor:compare → compare two date ranges side by side
+  - visitor:slow → find the slowest routes/URIs by duration
+  - visitor:memory → show memory usage per route/URI
+- ⚙️ Zero config, no DB, log files stored in var/visitor_tracker/logs
 - 🔐 Compatible with cookie-free / consent-aware environments
 
 ---
@@ -227,16 +231,16 @@ We collect only:
 * Route/URI & status
 * Duration & memory usage (no personal data)
 
-✅ No cookies, sessions, or user tracking unless you add it manually.  
-✅ Fully usable without consent banners.  
+✅ No cookies, sessions, or user tracking unless you add it manually.
+✅ Fully usable without consent banners.
 ❗ Geolocation via `ipapi.co` can be disabled.
 
 ---
 
 ## 👤 Author
 
-Michael Holm Kristensen  
-Part of the Clubmaster GmbH ecosystem  
+Michael Holm Kristensen
+Part of the Clubmaster GmbH ecosystem
 🔗 [github.com/hollodk](https://github.com/hollodk)
 
 ---
