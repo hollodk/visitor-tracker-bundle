@@ -396,8 +396,7 @@ class VisitorLogFetcher
     public function buildAggregates(array $entries): array
     {
         $byMethod = $byRoute = $byRouteDuration = $byRouteStatus = $byReferrerDomain = [];
-
-        $byDate = $byHour = $byCountry = $byCity = $byUri = [];
+        $byCountry = $byCity = $byUri = [];
         $utmSources = $utmCampaigns = $byBrowser = $byOS = $byDevice = $byReferrer = [];
         $contentTypes = $statusCodes = [];
 
@@ -412,6 +411,9 @@ class VisitorLogFetcher
         $memoryUsage = [];
         $responseSizes = [];
 
+        $dailyStats = [];
+        $hourlyStats = [];
+
         $phpWarningTotals = [
             'notice' => 0,
             'warning' => 0,
@@ -423,6 +425,18 @@ class VisitorLogFetcher
             'anon' => 0,
             'auth' => 0,
         ];
+
+        $initStats = function () {
+            return [
+                'requests' => 0,
+                'unique_ips' => [],
+                'errors' => 0,
+                'bots' => 0,
+                'durations' => [],
+                'memory' => [],
+                'payload' => [],
+            ];
+        };
 
         foreach ($entries as $entry) {
             $date = substr($entry['date'] ?? '', 0, 10);
@@ -450,8 +464,8 @@ class VisitorLogFetcher
             $day = $entryTime->format('Y-m-d');
             $hour = $entryTime->format('Y-m-d H:00');
 
-            $byDate[$day] = ($byDate[$day] ?? 0) + 1;
-            $byHour[$hour] = ($byHour[$hour] ?? 0) + 1;
+            $dailyStats[$day] ??= $initStats();
+            $hourlyStats[$hour] ??= $initStats();
 
             $visitorIds[] = $visitorId;
 
@@ -484,11 +498,26 @@ class VisitorLogFetcher
             if (!empty($entry['os'])) $byOS[$entry['os']] = ($byOS[$entry['os']] ?? 0) + 1;
             if (!empty($entry['device'])) $byDevice[$entry['device']] = ($byDevice[$entry['device']] ?? 0) + 1;
             if (!empty($entry['referrer'])) $byReferrer[$entry['referrer']] = ($byReferrer[$entry['referrer']] ?? 0) + 1;
+
             if (!empty($entry['is_bot'])) $bots++;
 
+            $duration = floatval($entry['duration_ms'] ?? 0);
+            $memory = floatval($entry['memory_usage_bytes'] ?? 0);
+            $payload = floatval($entry['response_size_bytes'] ?? 0);
+
             $durations[] = $duration;
-            $memoryUsage[] = floatval($entry['memory_usage_bytes'] ?? 0);
-            $responseSizes[] = floatval($entry['response_size_bytes'] ?? 0);
+            $memoryUsage[] = $memory;
+            $responseSizes[] = $payload;
+
+            foreach ([$dailyStats[$day], $hourlyStats[$hour]] as &$bucket) {
+                $bucket['requests']++;
+                $bucket['unique_ips'][$entry['ip'] ?? 'unknown'] = true;
+                if (!empty($entry['is_bot'])) $bucket['bots']++;
+                $bucket['durations'][] = $duration;
+                $bucket['memory'][] = $memory;
+                $bucket['payload'][] = $payload;
+            }
+            unset($bucket);
 
             if (!empty($entry['php_warnings']) && is_array($entry['php_warnings'])) {
                 foreach ($phpWarningTotals as $type => $_) {
@@ -503,6 +532,24 @@ class VisitorLogFetcher
                 $contentTypes[$entry['content_type']] = ($contentTypes[$entry['content_type']] ?? 0) + 1;
             }
         }
+
+        $reduceStats = function ($buckets) {
+            $result = [];
+            foreach ($buckets as $key => $bucket) {
+                $result[$key] = [
+                    'requests' => $bucket['requests'],
+                    'unique_ips' => count($bucket['unique_ips']),
+                    'bots' => $bucket['bots'],
+                    'avg_duration_ms' => $bucket['durations'] ? round(array_sum($bucket['durations']) / count($bucket['durations']), 2) : 0,
+                    'avg_memory_mb' => $bucket['memory'] ? round(array_sum($bucket['memory']) / count($bucket['memory']) / 1024 / 1024, 2) : 0,
+                    'avg_response_kb' => $bucket['payload'] ? round(array_sum($bucket['payload']) / count($bucket['payload']) / 1024, 2) : 0,
+                ];
+            }
+            return $result;
+        };
+
+        $dailyStatsReduced = $reduceStats($dailyStats);
+        $hourlyStatsReduced = $reduceStats($hourlyStats);
 
         $dailyUniques = [];
         $dailyReturnings = [];
@@ -529,8 +576,8 @@ class VisitorLogFetcher
 
             'time' => [
                 'requests' => [
-                    'by_date' => $byDate,
-                    'by_hour' => $byHour,
+                    'by_date' => array_map(fn($v) => $v['requests'], $dailyStatsReduced),
+                    'by_hour' => array_map(fn($v) => $v['requests'], $hourlyStatsReduced),
                 ],
                 'uniques' => [
                     'daily' => $dailyUniques,
@@ -540,6 +587,8 @@ class VisitorLogFetcher
                     'daily' => $dailyReturnings,
                     'weekly' => $weeklyReturnings,
                 ],
+                'daily_stats' => $dailyStatsReduced,
+                'hourly_stats' => $hourlyStatsReduced,
             ],
 
             'traffic' => [
@@ -579,4 +628,5 @@ class VisitorLogFetcher
             'auth' => $authCount,
         ];
     }
+
 }
