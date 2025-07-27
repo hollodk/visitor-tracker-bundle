@@ -60,6 +60,7 @@ class VisitorLogFetcher
     {
         $from = new \DateTime($options['from']);
         $to = new \DateTime($options['to']);
+        $filterIp = $options['ip'] ?? null;
 
         $entries = [];
 
@@ -71,6 +72,7 @@ class VisitorLogFetcher
             if (!is_array($entry)) continue;
 
             $entry['date'] ??= null;
+            $entry['ip'] ??= null;
 
             // Skip if no date or invalid format
             if (!$entry['date']) continue;
@@ -84,6 +86,9 @@ class VisitorLogFetcher
             // Filter by date range
             if ($from && $entryDate < $from) continue;
             if ($to && $entryDate > $to) continue;
+
+            // Filter by IP
+            if ($filterIp && $entry['ip'] !== $filterIp) continue;
 
             // Default values
             $entry['visitor_id'] ??= null;
