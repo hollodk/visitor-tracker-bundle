@@ -54,10 +54,10 @@ class VisitorCompareCommand extends Command
         ));
 
         $dataA = $this->fetcher->fetch(['from' => $aFrom->format('Y-m-d'), 'to' => $aTo->format('Y-m-d')]);
-        $statsA = $dataA['parsed'];
+        $statsA = $dataA['lines'];
 
         $dataB = $this->fetcher->fetch(['from' => $bFrom->format('Y-m-d'), 'to' => $bTo->format('Y-m-d')]);
-        $statsB = $dataB['parsed'];
+        $statsB = $dataB['lines'];
 
         $this->helper->printNumericComparison($io, 'Total Visits', $statsA['total'], $statsB['total']);
         $this->helper->printNumericComparison($io, 'Unique Visitors', $statsA['unique'], $statsB['unique']);

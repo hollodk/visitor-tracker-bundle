@@ -26,49 +26,18 @@ class VisitorLogFetcher
         return [
             'from' => $from,
             'to' => $to,
-            'lines' => $logLines,
-            'parsed' => $this->parseLogLines($logLines),
+            'lines' => $this->parseLogLines($logLines, $options),
         ];
     }
 
     public function fetchSummarizeLogs($options)
     {
-        $parsed = $this->fetch($options);
+        $result = $this->fetch($options);
 
         return [
-            'summary' => $this->buildAggregates($parsed['parsed']),
-            'lines' => $parsed['parsed'],
+            'summary' => $this->buildAggregates($result['lines']),
+            'lines' => $result['lines'],
         ];
-    }
-
-    public function parseLogLines(array $lines): array
-    {
-        $entries = [];
-
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if (!$line) continue;
-
-            $entry = json_decode($line, true);
-            if (!is_array($entry)) continue;
-
-            // Ensure some critical defaults
-            $entry['date'] ??= null;
-            $entry['visitor_id'] ??= null;
-            $entry['duration_ms'] ??= 0;
-            $entry['memory_usage_bytes'] ??= 0;
-            $entry['php_warnings'] ??= [
-                'notice' => 0,
-                'warning' => 0,
-                'deprecated' => 0,
-                'error' => 0,
-            ];
-            $entry['utm'] ??= [];
-
-            $entries[] = $entry;
-        }
-
-        return $entries;
     }
 
     public function loadLogsForDateRange(string $logDir, \DateTimeInterface $from, \DateTimeInterface $to): array
@@ -85,6 +54,53 @@ class VisitorLogFetcher
         }
 
         return $logs;
+    }
+
+    public function parseLogLines(array $lines, array $options): array
+    {
+        $from = new \DateTime($options['from']);
+        $to = new \DateTime($options['to']);
+
+        $entries = [];
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (!$line) continue;
+
+            $entry = json_decode($line, true);
+            if (!is_array($entry)) continue;
+
+            $entry['date'] ??= null;
+
+            // Skip if no date or invalid format
+            if (!$entry['date']) continue;
+
+            try {
+                $entryDate = new \DateTimeImmutable($entry['date']);
+            } catch (\Exception) {
+                continue;
+            }
+
+            // Filter by date range
+            if ($from && $entryDate < $from) continue;
+            if ($to && $entryDate > $to) continue;
+
+            // Default values
+            $entry['visitor_id'] ??= null;
+            $entry['duration_ms'] ??= 0;
+            $entry['memory_usage_bytes'] ??= 0;
+            $entry['php_warnings'] ??= [
+                'notice' => 0,
+                'warning' => 0,
+                'deprecated' => 0,
+                'error' => 0,
+            ];
+            $entry['utm'] ??= [];
+
+            $entries[] = $entry;
+        }
+
+        return $entries;
     }
 
     function fetchMetricTable(array $entries, string $groupBy = 'ip', string $sortBy = 'requests', int $top = 10, $danger = null, $warning = null)
