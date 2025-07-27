@@ -2,11 +2,9 @@
 
 A modern, developer-friendly, privacy-aware Symfony bundle for tracking, analyzing, and auditing traffic to your app or site — with zero JavaScript, no cookies, and full CLI access.
 
-Built for privacy-first analytics, sysadmin diagnostics, devops monitoring, and marketing insights — from a single log source.
-
-📦 File-based, no database required
-📈 Real-time CLI tools: live traffic, slow route detection, memory usage, historical stats, weekly comparisons
-🛡️ GDPR/CCPA friendly by default
+> Built for privacy-first analytics, sysadmin diagnostics, devops monitoring, and marketing insights — from a single log source.
+>
+> Note: This tool is not designed to replace Google Analytics or enterprise-grade analytics suites. It shines in the early stages of development, during MVP testing, or in debugging phases where performance insights, traffic logs, and CLI-driven analytics are more valuable than dashboards. It prioritizes simplicity, speed, and visibility for developers and teams.
 
 ---
 
