@@ -157,4 +157,149 @@ class VisitorRenderHelper
         }
     }
 
+    public function renderHealth(SymfonyStyle $io, $summary)
+    {
+        $io->title('🛠️ System Health Summary');
+
+        $io->listing([
+            "Requests          : {$summary['total']}",
+            "Unique Visitors   : {$summary['unique']}",
+            "Returning Visitors: {$summary['returning']}",
+            "Bots Detected     : {$summary['bots']}",
+            "Avg Duration      : {$summary['avg_duration_ms']} ms",
+            "Max Duration      : {$summary['max_duration_ms']} ms",
+            "Avg Memory        : {$summary['avg_memory_mb']} MB",
+            "Max Memory        : {$summary['max_memory_mb']} MB",
+            "Avg Response Size : {$summary['avg_response_kb']} KB",
+            "Auth Status       : anon={$summary['auth_counts']['anon']}, auth={$summary['auth_counts']['auth']}",
+            "Warnings          : W:{$summary['php_warnings']['warning']} N:{$summary['php_warnings']['notice']} D:{$summary['php_warnings']['deprecated']} E:{$summary['php_warnings']['error']}"
+        ]);
+    }
+
+    public function renderSysadminStats(SymfonyStyle $io, $summary)
+    {
+        $io->section('📊 Top Status Codes');
+        foreach (array_slice($summary['byStatusCode'], 0, 5) as $code => $count) {
+            $io->text(" - $code: $count");
+        }
+
+        $io->section('📂 Content Types');
+        foreach (array_slice($summary['byContentType'], 0, 5) as $type => $count) {
+            $io->text(" - $type: $count");
+        }
+
+        $io->section('🌐 Routes Accessed');
+        foreach (array_slice($summary['byRoute'] ?? [], 0, 5) as $route => $count) {
+            $io->text(" - $route: $count");
+        }
+
+        $io->section('🕵️‍♂️ Methods Used');
+        foreach (array_slice($summary['byMethod'] ?? [], 0, 5) as $method => $count) {
+            $io->text(" - $method: $count");
+        }
+
+        $io->section('🌍 Countries');
+        foreach (array_slice($summary['byCountry'], 0, 5) as $country => $count) {
+            $io->text(" - $country: $count");
+        }
+
+        $io->section('🧭 Locales');
+        foreach (array_slice($summary['byLocale'] ?? [], 0, 5) as $locale => $count) {
+            $io->text(" - $locale: $count");
+        }
+    }
+
+    public function renderDevopsStats(SymfonyStyle $io, $summary, $limit)
+    {
+        $this->title($io, '⚙️ DevOps Visitor Metrics');
+
+        $this->barChart($io, '🌍 Top Referrer Domains', $summary['byReferrerDomain'], 50, $limit);
+        $this->barChart($io, '🧭 HTTP Methods', $summary['byMethod'], 30, $limit);
+        $this->barChart($io, '📂 Top Content Types', $summary['byContentType'], 30, $limit);
+        $this->barChart($io, '❌ Top Failing Routes (4xx/5xx)', $this->extractFailingRoutes($summary['byRouteStatus'] ?? []), 40);
+
+        $io->section('💾 Heavy Clients (Memory Usage)');
+        $io->table(
+            ['IP', 'Requests', 'Memory (MB)', 'Payload (KB)'],
+            $this->extractHeavyClients($summary['parsed'] ?? [])
+        );
+
+        $this->renderSlowRoutesTable($io, '🐢 Slowest Routes', $this->toRouteDurationStats($summary['byRouteDuration'], $summary['byRouteStatus'] ?? []));
+
+        $this->memoryTable($io, '🧠 Memory Usage by Route', $this->buildMemoryStats($summary['byRoute'], $summary['avg_memory_mb']));
+    }
+
+    private function toRouteDurationStats(array $byRouteDuration, array $byRouteStatus): array
+    {
+        $result = [];
+
+        foreach ($byRouteDuration as $route => $durations) {
+            $avg = round(array_sum($durations) / count($durations), 2);
+            $max = round(max($durations), 2);
+            $result[$route] = [
+                'count' => count($durations),
+                'avg' => $avg,
+                'max' => $max,
+                'status_code' => key($byRouteStatus[$route] ?? []),
+                'auth' => '-', // placeholder
+            ];
+        }
+
+        return $result;
+    }
+
+    private function buildMemoryStats(array $byRoute, float $avgMemory): array
+    {
+        $result = [];
+
+        foreach ($byRoute as $route => $count) {
+            $result[$route] = [
+                'count' => $count,
+                'avg' => $avgMemory * 1024 * 1024, // convert MB back to bytes
+                'max' => $avgMemory * 1024 * 1024 * 1.5,
+            ];
+        }
+
+        return $result;
+    }
+
+    private function extractFailingRoutes(array $byRouteStatus, int $limit = 10): array
+    {
+        $errors = [];
+
+        foreach ($byRouteStatus as $route => $statuses) {
+            foreach ($statuses as $code => $count) {
+                if ($code >= 400) {
+                    $errors[$route] = ($errors[$route] ?? 0) + $count;
+                }
+            }
+        }
+
+        arsort($errors);
+        return array_slice($errors, 0, $limit, true);
+    }
+
+    private function extractHeavyClients(array $entries, int $limit = 10): array
+    {
+        $clients = [];
+
+        foreach ($entries as $entry) {
+            $ip = $entry['ip'] ?? 'unknown';
+            $clients[$ip]['requests'] = ($clients[$ip]['requests'] ?? 0) + 1;
+            $clients[$ip]['memory'] = ($clients[$ip]['memory'] ?? 0) + ($entry['memory_usage_bytes'] ?? 0);
+            $clients[$ip]['size'] = ($clients[$ip]['size'] ?? 0) + ($entry['response_size_bytes'] ?? 0);
+        }
+
+        uasort($clients, fn($a, $b) => $b['memory'] <=> $a['memory']); // or use 'size'
+
+        return array_slice(array_map(function ($ip, $data) {
+            return [
+                'ip' => $ip,
+                'requests' => $data['requests'],
+                'memory_mb' => round($data['memory'] / 1048576, 2),
+                'size_kb' => round($data['size'] / 1024, 2),
+            ];
+        }, array_keys($clients), $clients), 0, $limit);
+    }
+
 }

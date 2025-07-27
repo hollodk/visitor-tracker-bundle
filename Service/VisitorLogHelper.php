@@ -4,26 +4,24 @@ namespace Beast\VisitorTrackerBundle\Service;
 
 class VisitorLogHelper
 {
-    public static function loadLogsForDateRange(string $logDir, \DateTimeInterface $from, \DateTimeInterface $to): array
+    public function __construct(private VisitorLogFetcher $fetcher)
     {
-        $logs = [];
-        $period = new \DatePeriod($from, new \DateInterval('P1D'), (clone $to)->modify('+1 day'));
-
-        foreach ($period as $date) {
-            $filename = sprintf('%s/%s.log', rtrim($logDir, '/'), $date->format('Y-m-d'));
-            if (file_exists($filename)) {
-                $lines = file($filename, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-                $logs = array_merge($logs, $lines);
-            }
-        }
-
-        return $logs;
     }
 
-    public static function parseLogLines(array $lines): array
+    public function fetchSummarizeLogs(array $rawLines): array
+    {
+        $this->fetcher->fetch($options);
+
+        $parsed = self::parseLogLines($rawLines);
+        return self::buildAggregates($parsed);
+    }
+
+    public function buildAggregates(array $entries): array
     {
         $byDate = $byHour = $byCountry = $byCity = $byUri = [];
         $utmSources = $utmCampaigns = $byBrowser = $byOS = $byDevice = $byReferrer = [];
+        $contentTypes = $statusCodes = [];
+
         $total = $bots = 0;
         $visitorIds = [];
 
@@ -31,16 +29,28 @@ class VisitorLogHelper
         $dailyReturningVisitors = [];
         $seenVisitors = [];
 
-        foreach ($lines as $line) {
-            $entry = json_decode($line, true);
-            if (!is_array($entry)) continue;
+        $durations = [];
+        $memoryUsage = [];
+        $responseSizes = [];
 
+        $phpWarningTotals = [
+            'notice' => 0,
+            'warning' => 0,
+            'deprecated' => 0,
+            'error' => 0,
+        ];
+
+        $authCount = [
+            'anon' => 0,
+            'auth' => 0,
+        ];
+
+        foreach ($entries as $entry) {
             $date = substr($entry['date'] ?? '', 0, 10);
             $visitorId = $entry['visitor_id'] ?? null;
 
             if (!$visitorId || !$date) continue;
 
-            // Unique vs returning
             $dailyUniqueVisitors[$date] ??= [];
             $dailyReturningVisitors[$date] ??= [];
 
@@ -59,12 +69,12 @@ class VisitorLogHelper
 
             $total++;
             $day = $entryTime->format('Y-m-d');
+            $hour = $entryTime->format('Y-m-d H:00');
+
             $byDate[$day] = ($byDate[$day] ?? 0) + 1;
+            $byHour[$hour] = ($byHour[$hour] ?? 0) + 1;
 
             $visitorIds[] = $visitorId;
-
-            $hour = $entryTime->format('Y-m-d H:00');
-            $byHour[$hour] = ($byHour[$hour] ?? 0) + 1;
 
             if (!empty($entry['country'])) $byCountry[$entry['country']] = ($byCountry[$entry['country']] ?? 0) + 1;
             if (!empty($entry['city'])) $byCity[$entry['city']] = ($byCity[$entry['city']] ?? 0) + 1;
@@ -76,6 +86,33 @@ class VisitorLogHelper
             if (!empty($entry['device'])) $byDevice[$entry['device']] = ($byDevice[$entry['device']] ?? 0) + 1;
             if (!empty($entry['referrer'])) $byReferrer[$entry['referrer']] = ($byReferrer[$entry['referrer']] ?? 0) + 1;
             if (!empty($entry['is_bot'])) $bots++;
+
+            // Duration and memory
+            $durations[] = floatval($entry['duration_ms'] ?? 0);
+            $memoryUsage[] = floatval($entry['memory_usage_bytes'] ?? 0);
+            $responseSizes[] = floatval($entry['response_size_bytes'] ?? 0);
+
+            // PHP Warnings
+            if (!empty($entry['php_warnings']) && is_array($entry['php_warnings'])) {
+                foreach ($phpWarningTotals as $type => $_) {
+                    $phpWarningTotals[$type] += $entry['php_warnings'][$type] ?? 0;
+                }
+            }
+
+            // Authenticated
+            $authType = ($entry['auth'] ?? 'anon') === 'anon' ? 'anon' : 'auth';
+            $authCount[$authType]++;
+
+            // Content Type
+            if (!empty($entry['content_type'])) {
+                $contentTypes[$entry['content_type']] = ($contentTypes[$entry['content_type']] ?? 0) + 1;
+            }
+
+            // Status Code
+            $status = (int) ($entry['status_code'] ?? 0);
+            if ($status > 0) {
+                $statusCodes[$status] = ($statusCodes[$status] ?? 0) + 1;
+            }
         }
 
         $dailyUniques = [];
@@ -95,14 +132,12 @@ class VisitorLogHelper
             $weeklyReturnings[$week] = ($weeklyReturnings[$week] ?? 0) + count($ids);
         }
 
-        $uniqueVisitors = count(array_unique($visitorIds));
-        $repeatedVisitors = count($visitorIds) - $uniqueVisitors;
-
         return [
             'total' => $total,
+            'unique' => count(array_unique($visitorIds)),
+            'returning' => count($visitorIds) - count(array_unique($visitorIds)),
             'bots' => $bots,
-            'unique' => $uniqueVisitors,
-            'returning' => $repeatedVisitors,
+
             'byDate' => $byDate,
             'byHour' => $byHour,
             'byCountry' => $byCountry,
@@ -114,10 +149,23 @@ class VisitorLogHelper
             'byOS' => $byOS,
             'byDevice' => $byDevice,
             'byReferrer' => $byReferrer,
+            'byContentType' => $contentTypes,
+            'byStatusCode' => $statusCodes,
+
             'daily_uniques' => $dailyUniques,
             'daily_returning' => $dailyReturnings,
             'weekly_uniques' => $weeklyUniques,
             'weekly_returning' => $weeklyReturnings,
+
+            'avg_duration_ms' => $durations ? round(array_sum($durations) / count($durations), 2) : 0,
+            'max_duration_ms' => $durations ? max($durations) : 0,
+            'avg_memory_mb' => $memoryUsage ? round(array_sum($memoryUsage) / count($memoryUsage) / 1024 / 1024, 2) : 0,
+            'max_memory_mb' => $memoryUsage ? round(max($memoryUsage) / 1024 / 1024, 2) : 0,
+            'avg_response_kb' => $responseSizes ? round(array_sum($responseSizes) / count($responseSizes) / 1024, 2) : 0,
+
+            'php_warnings' => $phpWarningTotals,
+            'auth_counts' => $authCount,
         ];
     }
+
 }
