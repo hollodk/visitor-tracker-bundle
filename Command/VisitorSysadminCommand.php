@@ -19,7 +19,7 @@ class VisitorSysadminCommand extends Command
 {
     public function __construct(
         private VisitorLogFetcher $fetcher,
-        private VisitorRenderHelper $renderHelper
+        private VisitorRenderHelper $renderer
     ) {
         parent::__construct();
     }
@@ -37,13 +37,43 @@ class VisitorSysadminCommand extends Command
         $from = $input->getOption('from');
         $to = $input->getOption('to');
 
-        $data = $this->fetcher->fetchSummarizeLogs([
+        $r = $this->fetcher->fetchSummarizeLogs([
             'from' => $from,
             'to' => $to,
         ]);
+        $summary = $r['summary'];
 
-        $stats = $this->renderHelper->renderHealth($io, $data);
-        $stats = $this->renderHelper->renderSysadminStats($io, $data);
+        $stats = $this->renderer->renderHealth($io, $summary);
+
+        $this->renderer->title($io, '📊 Top Status Codes');
+        foreach (array_slice($summary['byStatusCode'], 0, 5) as $code => $count) {
+            $io->text(" - $code: $count");
+        }
+
+        $io->section('📂 Content Types');
+        foreach (array_slice($summary['byContentType'], 0, 5) as $type => $count) {
+            $io->text(" - $type: $count");
+        }
+
+        $io->section('🌐 Routes Accessed');
+        foreach (array_slice($summary['byRoute'] ?? [], 0, 5) as $route => $count) {
+            $io->text(" - $route: $count");
+        }
+
+        $io->section('🕵️ <200d>♂️ Methods Used');
+        foreach (array_slice($summary['byMethod'] ?? [], 0, 5) as $method => $count) {
+            $io->text(" - $method: $count");
+        }
+
+        $io->section('🌍 Countries');
+        foreach (array_slice($summary['byCountry'], 0, 5) as $country => $count) {
+            $io->text(" - $country: $count");
+        }
+
+        $io->section('🧭 Locales');
+        foreach (array_slice($summary['byLocale'] ?? [], 0, 5) as $locale => $count) {
+            $io->text(" - $locale: $count");
+        }
 
         return Command::SUCCESS;
     }

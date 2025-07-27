@@ -35,7 +35,10 @@ class VisitorLogFetcher
     {
         $parsed = $this->fetch($options);
 
-        return $this->buildAggregates($parsed['parsed']);
+        return [
+            'summary' => $this->buildAggregates($parsed['parsed']),
+            'lines' => $parsed['parsed'],
+        ];
     }
 
     public function parseLogLines(array $lines): array
@@ -82,6 +85,86 @@ class VisitorLogFetcher
         }
 
         return $logs;
+    }
+
+    function fetchMetricTable(array $entries, string $groupBy = 'ip', string $sortBy = 'requests', int $top = 10, $danger = null, $warning = null)
+    {
+        $aggregates = [];
+
+        $dangerIcon = '🔥';
+        $warningIcon = '⚠';
+
+        $uniqueIps = [];
+        foreach ($entries as $entry) {
+            $key = $entry[$groupBy] ?? 'unknown';
+            $ipKey = $key.'_'.$entry['ip'];
+
+            $aggregates[$key]['requests'] = ($aggregates[$key]['requests'] ?? 0) + 1;
+            $aggregates[$key]['duration_total'] = ($aggregates[$key]['duration_total'] ?? 0) + ($entry['duration_ms'] ?? 0);
+            $aggregates[$key]['duration_max'] = max($aggregates[$key]['duration_max'] ?? 0, $entry['duration_ms'] ?? 0);
+
+            $aggregates[$key]['memory_total'] = ($aggregates[$key]['memory_total'] ?? 0) + ($entry['memory_usage_bytes'] ?? 0);
+            $aggregates[$key]['memory_max'] = max($aggregates[$key]['memory_max'] ?? 0, $entry['memory_usage_bytes'] ?? 0);
+
+            $aggregates[$key]['payload_total'] = ($aggregates[$key]['payload_total'] ?? 0) + ($entry['response_size_bytes'] ?? 0);
+
+            if (!isset($uniqueIps[$ipKey])) {
+                $aggregates[$key]['unique_ip'] = ($aggregates[$key]['unique_ip'] ?? 0) + 1;
+                $uniqueIps[$ipKey] = true;
+            }
+        }
+
+        $result = [];
+
+        foreach ($aggregates as $key => $data) {
+            $req = $data['requests'];
+
+            $param = [
+                'source'        => $key,
+                'requests'      => $req,
+                'avg_duration'  => round($data['duration_total'] / $req, 2),
+                'max_duration'  => $data['duration_max'],
+                'avg_memory'    => round($data['memory_total'] / $req / 1048576, 2),
+                'max_memory'    => round($data['memory_max'] / 1048576, 2),
+                'unique_ip'     => $data['unique_ip'] ?? 0,
+                'payload_kb'    => round($data['payload_total'] / 1024, 2),
+                'flag'          => null,
+            ];
+
+            if ($danger !== null && $param[$sortBy] > $danger) {
+                $param['flag'] = $dangerIcon;
+            } elseif ($warning !== null && $param[$sortBy] > $warning) {
+                $param['flag'] = $warningIcon;
+            }
+
+            $result[] = $param;
+        }
+
+        usort($result, fn($a, $b) => $b[$sortBy] <=> $a[$sortBy]);
+
+        $headers = [
+            'Source', 'Requests', 'Avg Duration (ms)', 'Max Duration (ms)',
+            'Avg Memory (MB)', 'Max Memory (MB)', 'Unique IP', 'Payload (KB)',
+            'Flag'
+        ];
+
+        $rows = array_map(fn($r) => [
+            $r['source'],
+            $r['requests'],
+            $r['avg_duration'],
+            $r['max_duration'],
+            $r['avg_memory'],
+            $r['max_memory'],
+            $r['unique_ip'],
+            $r['payload_kb'],
+            $r['flag'],
+        ], array_slice($result, 0, $top));
+
+        return [
+            'title' => "📈 Top $top by " . ucfirst($groupBy) . " sort by ". ucfirst($sortBy),
+            'headers' => $headers,
+            'rows' => $rows,
+        ];
     }
 
     public function fetchMemoryStats(array $options): array

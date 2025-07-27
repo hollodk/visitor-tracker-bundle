@@ -119,6 +119,12 @@ Example entry:
 }
 ```
 
+bin/console visitor:export sysadmin      # system load, warnings, memory
+bin/console visitor:export devops        # CDN, durations, status trends
+bin/console visitor:export developer     # route usage, controller profiling
+bin/console visitor:export marketing     # UTM summaries, visitor sources
+bin/console visitor:export summary       # one-line daily summary (requests, errors, mem)
+
 ---
 
 ## 🧪 CLI Commands

@@ -99,6 +99,12 @@ class VisitorRenderHelper
             array_map(fn($r) => array_values($r), $rows));
     }
 
+    public function renderMetricTable(SymfonyStyle $io, $list)
+    {
+        $io->section($list['title']);
+        $io->table($list['headers'], $list['rows']);
+    }
+
     public function renderOverallSummary(SymfonyStyle $io, float $avgLatency, float $median, float $mem, float $payload): void
     {
         $io->section('Overall Averages');
@@ -127,6 +133,105 @@ class VisitorRenderHelper
 
         $io->section($title);
         $io->table(['Route/URI', 'Requests', 'Avg Duration', 'Max Duration', 'Status', 'Auth', '⚠'], $table);
+    }
+
+    public function renderHighAverageDurationTable(SymfonyStyle $io, array $summary): void
+    {
+        $stats = [];
+
+        foreach ($summary['byRouteDuration'] as $route => $durations) {
+            $count = count($durations);
+            $avg = $count ? round(array_sum($durations) / $count) : 0;
+            $max = $count ? round(max($durations)) : 0;
+
+            // Add emoji if avg > 500ms or max > 1000ms
+            $warn = ($avg > 500 || $max > 1000) ? '🔥' : '';
+
+            $stats[] = [
+                'route' => $route,
+                'count' => $count,
+                'avg' => "{$avg} ms",
+                'max' => "{$max} ms",
+                'warn' => $warn,
+            ];
+        }
+
+        usort($stats, fn($a, $b) => $b['avg'] <=> $a['avg']);
+
+        $tableRows = array_map(fn($r) => [
+            $r['route'],
+            $r['count'],
+            $r['avg'],
+            $r['max'],
+            $r['warn'],
+        ], array_slice($stats, 0, 10));
+
+        $io->section('🐌 Routes with High Average Duration');
+        $io->table(
+            ['Route', 'Requests', 'Avg Duration', 'Max Duration', '⚠'],
+            $tableRows
+        );
+    }
+
+    public function renderErrorProneRoutesTable(SymfonyStyle $io, array $summary): void
+    {
+        $rows = [];
+
+        foreach ($summary['byRouteStatus'] as $route => $statuses) {
+            $row = [
+                $route,
+                $statuses[200] ?? 0,
+                $statuses[400] ?? 0,
+                $statuses[404] ?? 0,
+                $statuses[500] ?? 0,
+            ];
+
+            // Count all other status codes
+            $otherCount = array_sum(array_filter($statuses, fn($code, $k) => !in_array((int)$k, [200, 400, 404, 500]), ARRAY_FILTER_USE_BOTH));
+            $row[] = $otherCount;
+            $row[] = $row[2]+$row[3]+$row[4]+$otherCount;
+
+            $rows[] = $row;
+        }
+
+        // Optional: sort routes by total errors (404 + 500 + other)
+        usort($rows, fn($a, $b) =>
+            ($b[2] + $b[3] + $b[4]) <=> ($a[2] + $a[3] + $a[4])
+        );
+
+        $io->section('⚠️ Error-Prone Routes');
+        $io->table(['Route', '200', '400', '404', '500', 'Other', 'Total'], array_slice($rows, 0, 10));
+    }
+
+    public function renderTopClientsTable(SymfonyStyle $io, array $entries, int $limit = 10): void
+    {
+        $clients = [];
+
+        foreach ($entries as $entry) {
+            $ip = $entry['ip'] ?? 'unknown';
+            $clients[$ip]['count'] = ($clients[$ip]['count'] ?? 0) + 1;
+            $clients[$ip]['total_duration'] = ($clients[$ip]['total_duration'] ?? 0) + ($entry['duration_ms'] ?? 0);
+            $clients[$ip]['total_memory'] = ($clients[$ip]['total_memory'] ?? 0) + ($entry['memory_usage_bytes'] ?? 0);
+            $clients[$ip]['total_size'] = ($clients[$ip]['total_size'] ?? 0) + ($entry['response_size_bytes'] ?? 0);
+        }
+
+        $rows = [];
+
+        foreach ($clients as $ip => $data) {
+            $count = $data['count'];
+            $rows[] = [
+                $ip,
+                $count,
+                round($data['total_memory'] / $count / 1048576, 2), // MB
+                round($data['total_duration'] / $count, 2), // ms
+                round($data['total_size'] / 1024, 2), // KB
+            ];
+        }
+
+        usort($rows, fn($a, $b) => $b[1] <=> $a[1]); // Sort by request count
+
+        $io->section('📡 Top Clients by Requests');
+        $io->table(['IP', 'Requests', 'Avg Memory (MB)', 'Avg Duration (ms)', 'Total Payload (KB)'], array_slice($rows, 0, $limit));
     }
 
     public function renderVisitorEntry(array $entry, OutputInterface $output, bool $isBot, bool $isReturning): void
@@ -174,59 +279,6 @@ class VisitorRenderHelper
             "Auth Status       : anon={$summary['auth_counts']['anon']}, auth={$summary['auth_counts']['auth']}",
             "Warnings          : W:{$summary['php_warnings']['warning']} N:{$summary['php_warnings']['notice']} D:{$summary['php_warnings']['deprecated']} E:{$summary['php_warnings']['error']}"
         ]);
-    }
-
-    public function renderSysadminStats(SymfonyStyle $io, $summary)
-    {
-        $io->section('📊 Top Status Codes');
-        foreach (array_slice($summary['byStatusCode'], 0, 5) as $code => $count) {
-            $io->text(" - $code: $count");
-        }
-
-        $io->section('📂 Content Types');
-        foreach (array_slice($summary['byContentType'], 0, 5) as $type => $count) {
-            $io->text(" - $type: $count");
-        }
-
-        $io->section('🌐 Routes Accessed');
-        foreach (array_slice($summary['byRoute'] ?? [], 0, 5) as $route => $count) {
-            $io->text(" - $route: $count");
-        }
-
-        $io->section('🕵️‍♂️ Methods Used');
-        foreach (array_slice($summary['byMethod'] ?? [], 0, 5) as $method => $count) {
-            $io->text(" - $method: $count");
-        }
-
-        $io->section('🌍 Countries');
-        foreach (array_slice($summary['byCountry'], 0, 5) as $country => $count) {
-            $io->text(" - $country: $count");
-        }
-
-        $io->section('🧭 Locales');
-        foreach (array_slice($summary['byLocale'] ?? [], 0, 5) as $locale => $count) {
-            $io->text(" - $locale: $count");
-        }
-    }
-
-    public function renderDevopsStats(SymfonyStyle $io, $summary, $limit)
-    {
-        $this->title($io, '⚙️ DevOps Visitor Metrics');
-
-        $this->barChart($io, '🌍 Top Referrer Domains', $summary['byReferrerDomain'], 50, $limit);
-        $this->barChart($io, '🧭 HTTP Methods', $summary['byMethod'], 30, $limit);
-        $this->barChart($io, '📂 Top Content Types', $summary['byContentType'], 30, $limit);
-        $this->barChart($io, '❌ Top Failing Routes (4xx/5xx)', $this->extractFailingRoutes($summary['byRouteStatus'] ?? []), 40);
-
-        $io->section('💾 Heavy Clients (Memory Usage)');
-        $io->table(
-            ['IP', 'Requests', 'Memory (MB)', 'Payload (KB)'],
-            $this->extractHeavyClients($summary['parsed'] ?? [])
-        );
-
-        $this->renderSlowRoutesTable($io, '🐢 Slowest Routes', $this->toRouteDurationStats($summary['byRouteDuration'], $summary['byRouteStatus'] ?? []));
-
-        $this->memoryTable($io, '🧠 Memory Usage by Route', $this->buildMemoryStats($summary['byRoute'], $summary['avg_memory_mb']));
     }
 
     private function toRouteDurationStats(array $byRouteDuration, array $byRouteStatus): array
@@ -281,25 +333,65 @@ class VisitorRenderHelper
 
     private function extractHeavyClients(array $entries, int $limit = 10): array
     {
-        $clients = [];
-
-        foreach ($entries as $entry) {
-            $ip = $entry['ip'] ?? 'unknown';
-            $clients[$ip]['requests'] = ($clients[$ip]['requests'] ?? 0) + 1;
-            $clients[$ip]['memory'] = ($clients[$ip]['memory'] ?? 0) + ($entry['memory_usage_bytes'] ?? 0);
-            $clients[$ip]['size'] = ($clients[$ip]['size'] ?? 0) + ($entry['response_size_bytes'] ?? 0);
-        }
-
-        uasort($clients, fn($a, $b) => $b['memory'] <=> $a['memory']); // or use 'size'
-
-        return array_slice(array_map(function ($ip, $data) {
-            return [
-                'ip' => $ip,
-                'requests' => $data['requests'],
-                'memory_mb' => round($data['memory'] / 1048576, 2),
-                'size_kb' => round($data['size'] / 1024, 2),
-            ];
-        }, array_keys($clients), $clients), 0, $limit);
     }
 
+    public function renderRequestStats(SymfonyStyle $io, $summary)
+    {
+        $io->section('🔄 Request Stats');
+
+        $io->listing([
+            "Total Requests      : {$summary['total']}",
+            "Unique Visitors     : {$summary['unique']}",
+            "Returning Visitors  : {$summary['returning']}",
+            "Authenticated Users : {$summary['auth_counts']['auth']}",
+            "Bots Detected       : {$summary['bots']}",
+        ]);
+    }
+
+    public function renderResponseMetrics(SymfonyStyle $io, $summary)
+    {
+        $io->section('📊 Response Metrics');
+
+        $io->listing([
+            "Avg Duration      : {$summary['avg_duration_ms']}",
+            "Max Duration      : {$summary['max_duration_ms']}",
+            "Avg Memory Usage  : {$summary['avg_memory_mb']}",
+            "Max Memory Usage  : {$summary['max_memory_mb']}",
+            "Avg Payload Size  : {$summary['avg_response_kb']}",
+        ]);
+    }
+
+    public function renderPhpWarnings(SymfonyStyle $io, $summary)
+    {
+        $io->section('⚠️ PHP Warnings');
+
+        $io->listing([
+            "Notice            : {$summary['php_warnings']['notice']}",
+            "Warnings          : {$summary['php_warnings']['warning']}",
+            "Deprecated        : {$summary['php_warnings']['deprecated']}",
+            "Errors            : {$summary['php_warnings']['error']}",
+        ]);
+    }
+
+    public function renderAuthenticated(SymfonyStyle $io, $summary)
+    {
+        $io->section('🔧 Authenticated vs Anonymous');
+
+        $io->listing([
+            "Authenticated     : {$summary['auth_counts']['auth']}",
+            "Anonymous         : {$summary['auth_counts']['anon']}",
+        ]);
+    }
+
+    public function renderTopStatusCodes(SymfonyStyle $io, $summary)
+    {
+        $io->section('📈 Top Status Codes');
+
+        $list = [];
+        foreach ($summary['byStatusCode'] as $code=>$quantity) {
+            $list[] = $code.': '.$quantity;
+        }
+
+        $io->listing($list);
+    }
 }

@@ -8,52 +8,58 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
     name: 'visitor:metric',
-    description: 'Show summarized API performance metrics from logs'
+    description: 'Detailed Metric overview of visitor logs',
 )]
 class VisitorMetricCommand extends Command
 {
-    public function __construct(private VisitorLogFetcher $fetcher, private VisitorRenderHelper $render)
-    {
+    public function __construct(
+        private VisitorLogFetcher $fetcher,
+        private VisitorRenderHelper $renderer,
+    ) {
         parent::__construct();
     }
 
     protected function configure(): void
     {
-        $this->addOption('since', null, InputOption::VALUE_OPTIONAL, 'How many days back to include (default 1)', 1);
+        $this
+            ->addOption('source', null, InputOption::VALUE_OPTIONAL, 'Source (route, ip)', 'route')
+            ->addOption('from', null, InputOption::VALUE_OPTIONAL, 'Start date', '-7 days')
+            ->addOption('to', null, InputOption::VALUE_OPTIONAL, 'End date', 'now')
+            ->addOption('limit', null, InputOption::VALUE_OPTIONAL, 'Limit for tables', 10);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $days = (int) $input->getOption('since');
 
-        $stats = $this->fetcher->fetchMetricStats($days);
+        $r = $this->fetcher->fetchSummarizeLogs([
+            'from' => $input->getOption('from'),
+            'to' => $input->getOption('to'),
+        ]);
 
-        if (empty($stats['entries'])) {
-            $io->warning("No entries found.");
-            return Command::SUCCESS;
-        }
+        $summary = $r['summary'];
+        $lines = $r['lines'];
 
-        $io->title("API Health Metrics (last $days day(s))");
+        $limit = (int) $input->getOption('limit');
 
-        $this->render->renderClientTable($io, 'Top Clients by Requests', $stats['topClients']);
-        $this->render->renderClientTable($io, 'Top Clients by Volume', $stats['topVolumeClients']);
-        $this->render->renderRouteTable($io, 'Top Memory-Heavy Routes', $stats['topMemoryRoutes']);
-        $this->render->renderRouteTable($io, 'Slowest Routes by Latency', $stats['topSlowRoutes']);
-        $this->render->renderRouteTable($io, 'Most Requested Routes', $stats['topRequestedRoutes']);
+        $source = $input->getOption('source');
 
-        $this->render->renderOverallSummary(
-            $io,
-            $stats['avgLatency'],
-            $stats['medianLatency'],
-            $stats['avgMemoryMb'],
-            $stats['avgPayloadKb']
-        );
+        $list = $this->fetcher->fetchMetricTable($lines, $source, $sortBy = 'avg_memory', $limit);
+        $this->renderer->renderMetricTable($io, $list);
+
+        $list = $this->fetcher->fetchMetricTable($lines, $source, $sortBy = 'avg_duration', $limit);
+        $this->renderer->renderMetricTable($io, $list);
+
+        $list = $this->fetcher->fetchMetricTable($lines, $source, $sortBy = 'requests', $limit);
+        $this->renderer->renderMetricTable($io, $list);
+
+        $list = $this->fetcher->fetchMetricTable($lines, $source, $sortBy = 'payload_kb', $limit);
+        $this->renderer->renderMetricTable($io, $list);
 
         return Command::SUCCESS;
     }
