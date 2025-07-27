@@ -509,7 +509,8 @@ class VisitorLogFetcher
             $memoryUsage[] = $memory;
             $responseSizes[] = $payload;
 
-            foreach ([$dailyStats[$day], $hourlyStats[$hour]] as &$bucket) {
+            foreach (['dailyStats' => $day, 'hourlyStats' => $hour] as $type => $key) {
+                $bucket = &${$type}[$key];
                 $bucket['requests']++;
                 $bucket['unique_ips'][$entry['ip'] ?? 'unknown'] = true;
                 if (!empty($entry['is_bot'])) $bucket['bots']++;
