@@ -1,7 +1,8 @@
 # 🕵️ Beast Visitor Tracker Bundle
 
-A modern, privacy-aware Symfony bundle for tracking and analyzing visitors on your website or app.
-No cookies. No JavaScript. No third-party analytics. Just clean, structured logs and CLI insights.
+A modern, developer-friendly, privacy-aware Symfony bundle for tracking, analyzing, and auditing traffic to your app or site — with zero JavaScript, no cookies, and full CLI access.
+
+Built for privacy-first analytics, sysadmin diagnostics, devops monitoring, and marketing insights — from a single log source.
 
 📦 File-based, no database required
 📈 Real-time CLI tools: live traffic, slow route detection, memory usage, historical stats, weekly comparisons
@@ -11,22 +12,37 @@ No cookies. No JavaScript. No third-party analytics. Just clean, structured logs
 
 ## ✨ Features
 
-- ✅ Logs each visitor request to a daily JSON file
-- 📍 Captures:
-  - IP, browser, OS, device type
-  - Referrer and UTM parameters
-  - Country, city, ISP (via ipapi.co)
-  - Bot detection, visitor fingerprinting
-  - Request duration, memory usage, route name
-  - Auth status and HTTP response code
-- 📊 Built-in CLI tools:
-  - visitor:stats → analytics dashboard in your terminal
-  - visitor:tail → real-time monitoring with filters
-  - visitor:compare → compare two date ranges side by side
-  - visitor:slow → find the slowest routes/URIs by duration
-  - visitor:memory → show memory usage per route/URI
-- ⚙️ Zero config, no DB, log files stored in var/visitor_tracker/logs
-- 🔐 Compatible with cookie-free / consent-aware environments
+🚀 Features
+🧾 File-Based Logging
+Tracks each request in structured .log files — no database needed.
+
+- ✅ Rich Visitor Metadata
+  Captures:
+  - IP address (anonymized if enabled)
+  - Browser, OS, device type
+  - Referrer, UTM parameters
+  - Country, city, ISP (via optional geo API)
+  - Auth status, route name, HTTP status
+  - Request duration, memory usage, response size
+  - Bot detection and unique visitor fingerprinting
+- ⚙️ CLI-First Analytics
+  Everything runs from the Symfony CLI — no external dashboards, no browser needed.
+- 📊 Purpose-Driven Tools
+  Tailored commands for:
+  - Sysadmin: detect warnings, high memory usage, and timeouts
+  - DevOps: status code trends, duration spikes, CDN usage
+  - Marketing: campaign UTM performance and visitor source summaries
+  - Developers: route usage, controller profiling
+- 📈 Real-Time Monitoring
+  Stream logs live using visitor:tail and analyze hot traffic without delay.
+- 🧠 Smart Aggregation
+  Group by route, URI, hour, date, browser, country, UTM source, and more.
+- 🔒 Privacy & Compliance Ready
+  - No cookies or sessions
+  - IP masking and optional geolocation
+  - Consent-free operation (GDPR/CCPA friendly by default)
+- 📂 Minimal Setup, Zero Overhead
+  Plug-and-play with Symfony. Just install and go — logging starts immediately.
 
 ---
 
@@ -119,17 +135,94 @@ Example entry:
 }
 ```
 
-bin/console visitor:export sysadmin      # system load, warnings, memory
-bin/console visitor:export devops        # CDN, durations, status trends
-bin/console visitor:export developer     # route usage, controller profiling
-bin/console visitor:export marketing     # UTM summaries, visitor sources
-bin/console visitor:export summary       # one-line daily summary (requests, errors, mem)
-
 ---
 
 ## 🧪 CLI Commands
 
-### 📈 `visitor:stats`
+
+### visitor:tail
+
+Real-time traffic monitor
+
+Stream new visitor logs as they happen.
+
+```bash
+bin/console visitor:tail --follow
+```
+
+Options:
+```bash
+--filter=bot|utm|referrer|new|return
+--date=YYYY-MM-DD
+--preview=20
+```
+
+
+### visitor:metric
+
+Internal system metrics from logs
+
+Summarizes durations, memory, payload, response size, errors, and performance.
+
+```bash
+bin/console visitor:metric --from=-7days
+```
+
+Great for: performance profiling and trend detection.
+
+
+### visitor:trend
+
+Track visitor trends over time
+
+Useful for spotting traffic spikes or drop-offs.
+
+```bash
+bin/console visitor:trend --type=requests|bots|utm --days=30
+```
+
+
+### visitor:sysadmin
+
+Health check for your app/server
+
+Scans for:
+- PHP warnings & errors
+- Memory spikes
+- Long-running requests
+- Unexpected status codes
+
+```bash
+bin/console visitor:sysadmin
+```
+
+
+### visitor:devops
+
+Operational diagnostics
+
+Breaks down:
+- CDN or URI usage patterns
+- Route-level performance
+- Traffic load by hour
+- Status code trends
+
+```bash
+bin/console visitor:devops
+```
+
+
+### visitor:snapshot
+
+Point-in-time export
+
+Generate a snapshot JSON of visitor data for sharing, archiving, or analysis.
+
+```bash
+bin/console visitor:snapshot --output=stats.json
+```
+
+### 📈 `visitor:cleanup`
 
 Full dashboard for the last 30 days.
 
@@ -144,80 +237,6 @@ Includes:
 * Country, city, browser, device, OS, UTM, referrer stats
 * Top visited pages
 * Weekly aggregates
-
----
-
-### 🔍 `visitor:tail`
-
-Live monitor logs like `tail -f` with filters:
-
-```bash
-php bin/console visitor:tail --follow
-```
-
-Available options:
-
-```bash
---filter=bot|utm|referrer|new|return
---preview=20
---date=YYYY-MM-DD
-```
-
----
-
-### 🆚 `visitor:compare`
-
-Compare two periods side-by-side:
-
-```bash
-php bin/console visitor:compare
-```
-
-Supports `--from`, `--to`, `--vs-from`, `--vs-to`, `--top=5`
-
----
-
-### 🐢 `visitor:slow`
-
-Find the slowest routes or URIs based on average or max duration:
-
-```bash
-php bin/console visitor:slow
-```
-
-Options:
-
-* `--from`, `--to`: date range
-* `--sort=avg|max|count`
-* `--auth=user|anon`
-* `--status=200`
-* `--uri=/product`
-* `--top=10`
-
----
-
-### 🧠 `visitor:memory`
-
-Check memory usage per route or URI:
-
-```bash
-php bin/console visitor:memory
-```
-
-Options:
-
-* `--from`, `--to`
-* `--sort=avg|max|count`
-* `--top=10`
-
----
-
-## 📂 File Structure
-
-* `EventSubscriber/VisitorLoggerSubscriber.php` → tracks core visitor info
-* `EventSubscriber/VisitorPerformanceSubscriber.php` → enriches with duration, memory, etc.
-* `Service/VisitorLogHelper.php` → parser/aggregator
-* `Command/Visitor*.php` → CLI tools
 
 ---
 
