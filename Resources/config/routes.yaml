@@ -1,0 +1,4 @@
+visitor_tracker_sysadmin:
+    resource: '@BeastVisitorTrackerBundle/Controller/'
+    type: annotation
+    prefix: /admin/visitor
