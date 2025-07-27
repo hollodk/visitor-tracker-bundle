@@ -46,12 +46,12 @@ class VisitorSysadminCommand extends Command
         $stats = $this->renderer->renderHealth($io, $summary);
 
         $this->renderer->title($io, '📊 Top Status Codes');
-        foreach (array_slice($summary['byStatusCode'], 0, 5) as $code => $count) {
+        foreach (array_slice($summary['traffic']['status_codes'], 0, 5) as $code => $count) {
             $io->text(" - $code: $count");
         }
 
         $io->section('📂 Content Types');
-        foreach (array_slice($summary['byContentType'], 0, 5) as $type => $count) {
+        foreach (array_slice($summary['traffic']['content_types'], 0, 5) as $type => $count) {
             $io->text(" - $type: $count");
         }
 
@@ -66,7 +66,7 @@ class VisitorSysadminCommand extends Command
         }
 
         $io->section('🌍 Countries');
-        foreach (array_slice($summary['byCountry'], 0, 5) as $country => $count) {
+        foreach (array_slice($summary['geo']['countries'], 0, 5) as $country => $count) {
             $io->text(" - $country: $count");
         }
 

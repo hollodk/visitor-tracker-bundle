@@ -527,41 +527,56 @@ class VisitorLogFetcher
             'returning' => count($visitorIds) - count(array_unique($visitorIds)),
             'bots' => $bots,
 
-            'byDate' => $byDate,
-            'byHour' => $byHour,
-            'byCountry' => $byCountry,
-            'byCity' => $byCity,
-            'byUri' => $byUri,
-            'utmSources' => $utmSources,
-            'utmCampaigns' => $utmCampaigns,
-            'byBrowser' => $byBrowser,
-            'byOS' => $byOS,
-            'byDevice' => $byDevice,
-            'byReferrer' => $byReferrer,
-            'byContentType' => $contentTypes,
-            'byStatusCode' => $statusCodes,
+            'time' => [
+                'requests' => [
+                    'by_date' => $byDate,
+                    'by_hour' => $byHour,
+                ],
+                'uniques' => [
+                    'daily' => $dailyUniques,
+                    'weekly' => $weeklyUniques,
+                ],
+                'returning' => [
+                    'daily' => $dailyReturnings,
+                    'weekly' => $weeklyReturnings,
+                ],
+            ],
 
-            'daily_uniques' => $dailyUniques,
-            'daily_returning' => $dailyReturnings,
-            'weekly_uniques' => $weeklyUniques,
-            'weekly_returning' => $weeklyReturnings,
+            'traffic' => [
+                'by_method' => $byMethod,
+                'by_route' => $byRoute,
+                'route_durations' => $byRouteDuration,
+                'route_statuses' => $byRouteStatus,
+                'status_codes' => $statusCodes,
+                'referrer_domains' => $byReferrerDomain,
+                'referrers' => $byReferrer,
+                'content_types' => $contentTypes,
+                'utm_sources' => $utmSources,
+                'utm_campaigns' => $utmCampaigns,
+            ],
 
-            'avg_duration_ms' => $durations ? round(array_sum($durations) / count($durations), 2) : 0,
-            'max_duration_ms' => $durations ? max($durations) : 0,
-            'avg_memory_mb' => $memoryUsage ? round(array_sum($memoryUsage) / count($memoryUsage) / 1024 / 1024, 2) : 0,
-            'max_memory_mb' => $memoryUsage ? round(max($memoryUsage) / 1024 / 1024, 2) : 0,
-            'avg_response_kb' => $responseSizes ? round(array_sum($responseSizes) / count($responseSizes) / 1024, 2) : 0,
+            'geo' => [
+                'countries' => $byCountry,
+                'cities' => $byCity,
+                'uris' => $byUri,
+            ],
+
+            'device' => [
+                'browser' => $byBrowser,
+                'os' => $byOS,
+                'device' => $byDevice,
+            ],
+
+            'performance' => [
+                'avg_duration_ms' => $durations ? round(array_sum($durations) / count($durations), 2) : 0,
+                'max_duration_ms' => $durations ? max($durations) : 0,
+                'avg_memory_mb' => $memoryUsage ? round(array_sum($memoryUsage) / count($memoryUsage) / 1024 / 1024, 2) : 0,
+                'max_memory_mb' => $memoryUsage ? round(max($memoryUsage) / 1024 / 1024, 2) : 0,
+                'avg_response_kb' => $responseSizes ? round(array_sum($responseSizes) / count($responseSizes) / 1024, 2) : 0,
+            ],
 
             'php_warnings' => $phpWarningTotals,
-            'auth_counts' => $authCount,
-
-            // 🆕 New fields:
-            'byMethod' => $byMethod,
-            'byRoute' => $byRoute,
-            'byRouteDuration' => $byRouteDuration,
-            'byRouteStatus' => $byRouteStatus,
-            'byReferrerDomain' => $byReferrerDomain,
+            'auth' => $authCount,
         ];
     }
-
 }

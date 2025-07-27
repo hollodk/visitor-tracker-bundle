@@ -177,7 +177,7 @@ class VisitorRenderHelper
     {
         $rows = [];
 
-        foreach ($summary['byRouteStatus'] as $route => $statuses) {
+        foreach ($summary['traffic']['route_statuses'] as $route => $statuses) {
             $row = [
                 $route,
                 $statuses[200] ?? 0,
@@ -271,12 +271,12 @@ class VisitorRenderHelper
             "Unique Visitors   : {$summary['unique']}",
             "Returning Visitors: {$summary['returning']}",
             "Bots Detected     : {$summary['bots']}",
-            "Avg Duration      : {$summary['avg_duration_ms']} ms",
-            "Max Duration      : {$summary['max_duration_ms']} ms",
-            "Avg Memory        : {$summary['avg_memory_mb']} MB",
-            "Max Memory        : {$summary['max_memory_mb']} MB",
-            "Avg Response Size : {$summary['avg_response_kb']} KB",
-            "Auth Status       : anon={$summary['auth_counts']['anon']}, auth={$summary['auth_counts']['auth']}",
+            "Avg Duration      : {$summary['performance']['avg_duration_ms']} ms",
+            "Max Duration      : {$summary['performance']['max_duration_ms']} ms",
+            "Avg Memory        : {$summary['performance']['avg_memory_mb']} MB",
+            "Max Memory        : {$summary['performance']['max_memory_mb']} MB",
+            "Avg Response Size : {$summary['performance']['avg_response_kb']} KB",
+            "Auth Status       : anon={$summary['auth']['anon']}, auth={$summary['auth']['auth']}",
             "Warnings          : W:{$summary['php_warnings']['warning']} N:{$summary['php_warnings']['notice']} D:{$summary['php_warnings']['deprecated']} E:{$summary['php_warnings']['error']}"
         ]);
     }
@@ -343,7 +343,7 @@ class VisitorRenderHelper
             "Total Requests      : {$summary['total']}",
             "Unique Visitors     : {$summary['unique']}",
             "Returning Visitors  : {$summary['returning']}",
-            "Authenticated Users : {$summary['auth_counts']['auth']}",
+            "Authenticated Users : {$summary['auth']['auth']}",
             "Bots Detected       : {$summary['bots']}",
         ]);
     }
@@ -353,11 +353,11 @@ class VisitorRenderHelper
         $io->section('📊 Response Metrics');
 
         $io->listing([
-            "Avg Duration      : {$summary['avg_duration_ms']}",
-            "Max Duration      : {$summary['max_duration_ms']}",
-            "Avg Memory Usage  : {$summary['avg_memory_mb']}",
-            "Max Memory Usage  : {$summary['max_memory_mb']}",
-            "Avg Payload Size  : {$summary['avg_response_kb']}",
+            "Avg Duration      : {$summary['performance']['avg_duration_ms']}",
+            "Max Duration      : {$summary['performance']['max_duration_ms']}",
+            "Avg Memory Usage  : {$summary['performance']['avg_memory_mb']}",
+            "Max Memory Usage  : {$summary['performance']['max_memory_mb']}",
+            "Avg Payload Size  : {$summary['performance']['avg_response_kb']}",
         ]);
     }
 
@@ -378,8 +378,8 @@ class VisitorRenderHelper
         $io->section('🔧 Authenticated vs Anonymous');
 
         $io->listing([
-            "Authenticated     : {$summary['auth_counts']['auth']}",
-            "Anonymous         : {$summary['auth_counts']['anon']}",
+            "Authenticated     : {$summary['auth']['auth']}",
+            "Anonymous         : {$summary['auth']['anon']}",
         ]);
     }
 
@@ -388,7 +388,7 @@ class VisitorRenderHelper
         $io->section('📈 Top Status Codes');
 
         $list = [];
-        foreach ($summary['byStatusCode'] as $code=>$quantity) {
+        foreach ($summary['traffic']['status_codes'] as $code=>$quantity) {
             $list[] = $code.': '.$quantity;
         }
 

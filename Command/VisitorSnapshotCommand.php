@@ -45,7 +45,7 @@ class VisitorSnapshotCommand extends Command
         $data = [
             ['👥 Unique Visitors', $current['unique'], $previous['unique'], $this->percentChange($previous['unique'], $current['unique'])],
             ['📄 Pageviews', $current['total'], $previous['total'], $this->percentChange($previous['total'], $current['total'])],
-            ['⏱ Avg. Load Time', $current['avg_duration_ms'] . ' ms', $previous['avg_duration_ms'] . ' ms', $this->percentChange($previous['avg_duration_ms'], $current['avg_duration_ms'], true)],
+            ['⏱ Avg. Load Time', $current['performance']['avg_duration_ms'] . ' ms', $previous['performance']['avg_duration_ms'] . ' ms', $this->percentChange($previous['performance']['avg_duration_ms'], $current['performance']['avg_duration_ms'], true)],
             ['💾 Avg. Memory', $current['php_warnings']['error'], $previous['php_warnings']['error'], $this->percentChange($previous['php_warnings']['error'], $current['php_warnings']['error'])],
             ['📦 Avg. Payload', $current['bots'], $previous['bots'], $this->percentChange($previous['bots'], $current['bots'])],
             ['🚨 500 Errors', $current['bots'], $previous['bots'], $this->percentChange($previous['bots'], $current['bots'])],
