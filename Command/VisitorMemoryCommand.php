@@ -2,8 +2,8 @@
 
 namespace Beast\VisitorTrackerBundle\Command;
 
-use Beast\VisitorTrackerBundle\Service\VisitorLogHelper;
-use Beast\VisitorTrackerBundle\Service\VisitorLogConfig;
+use Beast\VisitorTrackerBundle\Service\VisitorLogFetcher;
+use Beast\VisitorTrackerBundle\Service\VisitorRenderHelper;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -17,12 +17,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class VisitorMemoryCommand extends Command
 {
-    private string $logPath;
-
-    public function __construct(private VisitorLogConfig $config)
+    public function __construct(private VisitorRenderHelper $render, private VisitorLogFetcher $fetcher)
     {
         parent::__construct();
-        $this->logPath = $this->config->getLogDir();
     }
 
     protected function configure(): void
@@ -38,52 +35,26 @@ class VisitorMemoryCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        $from = new \DateTimeImmutable($input->getOption('from'));
-        $to = new \DateTimeImmutable($input->getOption('to'));
-        $sort = $input->getOption('sort');
-        $top = (int) $input->getOption('top');
+        $result = $this->fetcher->fetchMemoryStats([
+            'from' => $input->getOption('from'),
+            'to' => $input->getOption('to'),
+            'sort' => $input->getOption('sort'),
+            'top' => $input->getOption('top'),
+        ]);
 
-        $lines = VisitorLogHelper::loadLogsForDateRange($this->logPath, $from, $to);
+        $from = $result['from'];
+        $to = $result['to'];
+        $stats = $result['stats'];
 
-        $routes = [];
-
-        foreach ($lines as $line) {
-            $entry = json_decode($line, true);
-            if (!is_array($entry) || empty($entry['memory_usage_bytes']) || empty($entry['uri'])) continue;
-
-            $key = $entry['route'] ?? $entry['uri'];
-            $mem = (int) $entry['memory_usage_bytes'];
-
-            if (!isset($routes[$key])) {
-                $routes[$key] = ['count' => 0, 'total' => 0, 'max' => 0];
-            }
-
-            $routes[$key]['count']++;
-            $routes[$key]['total'] += $mem;
-            $routes[$key]['max'] = max($routes[$key]['max'], $mem);
+        if (empty($stats)) {
+            $io->warning('No matching log entries found.');
+            return Command::SUCCESS;
         }
 
-        foreach ($routes as &$data) {
-            $data['avg'] = $data['count'] ? round($data['total'] / $data['count']) : 0;
-        }
-
-        uasort($routes, match ($sort) {
-            'count' => fn($a, $b) => $b['count'] <=> $a['count'],
-            'max' => fn($a, $b) => $b['max'] <=> $a['max'],
-            default => fn($a, $b) => $b['avg'] <=> $a['avg'],
-        });
-
-        $routes = array_slice($routes, 0, $top, true);
-
-        $io->title("🧠 Memory Usage by Route/URI ({$from->format('Y-m-d')} to {$to->format('Y-m-d')})");
-        $io->table(
-            ['Route/URI', 'Requests', 'Avg Mem (MB)', 'Max Mem (MB)'],
-            array_map(fn($k, $v) => [
-                $k,
-                $v['count'],
-                number_format($v['avg'] / 1048576, 2),
-                number_format($v['max'] / 1048576, 2),
-            ], array_keys($routes), $routes)
+        $this->render->memoryTable(
+            $io,
+            "🧠 Memory Usage by Route/URI ({$from->format('Y-m-d')} to {$to->format('Y-m-d')})",
+            $stats
         );
 
         return Command::SUCCESS;

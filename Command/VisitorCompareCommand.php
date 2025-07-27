@@ -2,8 +2,9 @@
 
 namespace Beast\VisitorTrackerBundle\Command;
 
+use Beast\VisitorTrackerBundle\Service\VisitorCompareHelper;
+use Beast\VisitorTrackerBundle\Service\VisitorLogFetcher;
 use Beast\VisitorTrackerBundle\Service\VisitorLogHelper;
-use Beast\VisitorTrackerBundle\Service\VisitorLogConfig;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -17,13 +18,11 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class VisitorCompareCommand extends Command
 {
-    private string $logPath;
-
-    public function __construct(private VisitorLogConfig $config)
-    {
+    public function __construct(
+        private VisitorLogFetcher $fetcher,
+        private VisitorCompareHelper $helper
+    ) {
         parent::__construct();
-
-        $this->logPath = $this->config->getLogDir();
     }
 
     protected function configure(): void
@@ -39,104 +38,59 @@ class VisitorCompareCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $topLimit = (int) $input->getOption('top');
+        $top = (int) $input->getOption('top');
 
         try {
-            $rangeAStart = $input->getOption('from')
-                ? new \DateTimeImmutable($input->getOption('from'))
-                : (new \DateTimeImmutable('last sunday'))->modify('-2 weeks +1 day'); // Monday
-
-            $rangeAEnd = $input->getOption('to')
-                ? new \DateTimeImmutable($input->getOption('to'))
-                : (new \DateTimeImmutable('last sunday'))->modify('-1 day'); // Saturday
-
-            $rangeBStart = $input->getOption('vs-from')
-                ? new \DateTimeImmutable($input->getOption('vs-from'))
-                : (new \DateTimeImmutable('last sunday'))->modify('-1 week +1 day'); // Monday
-
-            $rangeBEnd = $input->getOption('vs-to')
-                ? new \DateTimeImmutable($input->getOption('vs-to'))
-                : (new \DateTimeImmutable('last sunday'))->modify('-1 day'); // Saturday
+            [$aFrom, $aTo, $bFrom, $bTo] = $this->resolveDateRanges($input);
         } catch (\Exception $e) {
             $io->error("Invalid date format. Use Y-m-d.");
             return Command::FAILURE;
         }
 
         $io->title(sprintf(
-            '📊 Comparing %s → %s with %s → %s',
-            $rangeAStart->format('Y-m-d'),
-            $rangeAEnd->format('Y-m-d'),
-            $rangeBStart->format('Y-m-d'),
-            $rangeBEnd->format('Y-m-d')
+            '📊 Comparing %s → %s vs %s → %s',
+            $aFrom->format('Y-m-d'), $aTo->format('Y-m-d'),
+            $bFrom->format('Y-m-d'), $bTo->format('Y-m-d')
         ));
 
-        $linesA = VisitorLogHelper::loadLogsForDateRange($this->logPath, $rangeAStart, $rangeAEnd);
-        $linesB = VisitorLogHelper::loadLogsForDateRange($this->logPath, $rangeBStart, $rangeBEnd);
+        $dataA = $this->fetcher->fetch(['from' => $aFrom->format('Y-m-d'), 'to' => $aTo->format('Y-m-d')]);
+        $statsA = $dataA['parsed'];
 
-        $statsA = VisitorLogHelper::parseLogLines($linesA);
-        $statsB = VisitorLogHelper::parseLogLines($linesB);
+        $dataB = $this->fetcher->fetch(['from' => $bFrom->format('Y-m-d'), 'to' => $bTo->format('Y-m-d')]);
+        $statsB = $dataB['parsed'];
 
-        $this->printComparison($io, 'Total Visits', $statsA['total'], $statsB['total']);
-        $this->printComparison($io, 'Unique Visitors', $statsA['unique'], $statsB['unique']);
-        $this->printComparison($io, 'Returning Visitors', $statsA['returning'], $statsB['returning']);
-        $this->printComparison($io, 'Bot Traffic', $statsA['bots'], $statsB['bots']);
+        $this->helper->printNumericComparison($io, 'Total Visits', $statsA['total'], $statsB['total']);
+        $this->helper->printNumericComparison($io, 'Unique Visitors', $statsA['unique'], $statsB['unique']);
+        $this->helper->printNumericComparison($io, 'Returning Visitors', $statsA['returning'], $statsB['returning']);
+        $this->helper->printNumericComparison($io, 'Bot Traffic', $statsA['bots'], $statsB['bots']);
 
-        $this->printTopComparison($io, '🌍 Countries', $statsA['byCountry'], $statsB['byCountry'], $topLimit);
-        $this->printTopComparison($io, '📱 Devices', $statsA['byDevice'], $statsB['byDevice'], $topLimit);
-        $this->printTopComparison($io, '🧑‍💻 Browsers', $statsA['byBrowser'], $statsB['byBrowser'], $topLimit);
-        $this->printTopComparison($io, '💻 OS', $statsA['byOS'], $statsB['byOS'], $topLimit);
-        $this->printTopComparison($io, '🎯 UTM Campaigns', $statsA['utmCampaigns'], $statsB['utmCampaigns'], $topLimit);
-        $this->printTopComparison($io, '🔗 Referrers', $statsA['byReferrer'], $statsB['byReferrer'], $topLimit);
-        $this->printTopComparison($io, '📄 URIs', $statsA['byUri'], $statsB['byUri'], $topLimit);
+        $this->helper->printTopComparison($io, '🌍 Countries', $statsA['byCountry'], $statsB['byCountry'], $top);
+        $this->helper->printTopComparison($io, '📱 Devices', $statsA['byDevice'], $statsB['byDevice'], $top);
+        $this->helper->printTopComparison($io, '🧑‍💻 Browsers', $statsA['byBrowser'], $statsB['byBrowser'], $top);
+        $this->helper->printTopComparison($io, '💻 OS', $statsA['byOS'], $statsB['byOS'], $top);
+        $this->helper->printTopComparison($io, '🎯 UTM Campaigns', $statsA['utmCampaigns'], $statsB['utmCampaigns'], $top);
+        $this->helper->printTopComparison($io, '🔗 Referrers', $statsA['byReferrer'], $statsB['byReferrer'], $top);
+        $this->helper->printTopComparison($io, '📄 URIs', $statsA['byUri'], $statsB['byUri'], $top);
 
         return Command::SUCCESS;
     }
 
-    private function printComparison(SymfonyStyle $io, string $label, int $a, int $b): void
+    private function resolveDateRanges(InputInterface $input): array
     {
-        $change = $b - $a;
-        $percent = $a !== 0 ? round(($change / $a) * 100, 1) : 0;
-        $symbol = $change > 0 ? '🔺' : ($change < 0 ? '🔻' : '➖');
-
-        $io->writeln(sprintf(
-            "<info>%s</info>: A: <fg=blue>%d</> | B: <fg=yellow>%d</> | %s %s%%",
-            $label, $a, $b, $symbol, $percent
-        ));
-    }
-
-    private function printTopComparison(SymfonyStyle $io, string $label, array $a, array $b, int $limit): void
-    {
-        $io->section($label);
-
-        $allKeys = array_unique(array_merge(array_keys($a), array_keys($b)));
-
-        $results = [];
-        foreach ($allKeys as $key) {
-            $valA = $a[$key] ?? 0;
-            $valB = $b[$key] ?? 0;
-            $diff = $valB - $valA;
-            $results[$key] = [
-                'A' => $valA,
-                'B' => $valB,
-                'Δ' => $diff,
-            ];
-        }
-
-        uasort($results, fn($x, $y) => abs($y['Δ']) <=> abs($x['Δ']));
-        $results = array_slice($results, 0, $limit, true);
-
-        $table = [];
-        foreach ($results as $key => $row) {
-            $symbol = $row['Δ'] > 0 ? '🔺' : ($row['Δ'] < 0 ? '🔻' : '➖');
-            $table[] = [
-                $key,
-                $row['A'],
-                $row['B'],
-                sprintf("%s %s", $symbol, $row['Δ']),
-            ];
-        }
-
-        $io->table(['Item', 'A', 'B', 'Change'], $table);
+        return [
+            $input->getOption('from')
+                ? new \DateTimeImmutable($input->getOption('from'))
+                : (new \DateTimeImmutable('last sunday'))->modify('-2 weeks +1 day'),
+            $input->getOption('to')
+                ? new \DateTimeImmutable($input->getOption('to'))
+                : (new \DateTimeImmutable('last sunday'))->modify('-1 week'),
+            $input->getOption('vs-from')
+                ? new \DateTimeImmutable($input->getOption('vs-from'))
+                : (new \DateTimeImmutable('last sunday'))->modify('-1 week +1 day'),
+            $input->getOption('vs-to')
+                ? new \DateTimeImmutable($input->getOption('vs-to'))
+                : (new \DateTimeImmutable('last sunday'))->modify('-1 day'),
+        ];
     }
 }
 

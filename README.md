@@ -82,27 +82,40 @@ Example entry:
 
 ```json
 {
-  "date": "2025-07-20 12:34:56",
-  "ip": "123.45.67.0",
-  "uri": "/products/42",
-  "user_agent": "...",
-  "visitor_id": "...",
-  "referrer": "https://google.com",
-  "country": "Germany",
-  "city": "Berlin",
-  "browser": "Chrome",
-  "os": "Windows",
-  "device": "desktop",
-  "utm": {
-    "utm_source": "newsletter",
-    "utm_campaign": "july-sale"
-  },
-  "duration_ms": 87.4,
-  "memory_usage_bytes": 8388608,
-  "status_code": 200,
-  "route": "product_show",
-  "auth": "user",
-  "is_bot": false
+    "date": "2025-07-27 11:31:25",
+    "ip": "127.0.0.1",
+    "uri": "\/serial-number?utm_source=facebook&utm_campaign=summer",
+    "method": "GET",
+    "user_agent": "Mozilla\/5.0 (X11; Linux x86_64) AppleWebKit\/537.36 (KHTML, like Gecko) Chrome\/136.0.0.0 Safari\/537.36",
+    "visitor_id": "574136fe4bbfcbdf48c98e38e50604cbd448e9d9",
+    "referrer": null,
+    "referrer_domain": null,
+    "referrer_path": null,
+    "country": "unknown",
+    "city": null,
+    "isp": null,
+    "browser": "Chrome",
+    "os": "Linux",
+    "device": "desktop",
+    "is_bot": false,
+    "utm": {
+        "utm_source": "facebook",
+        "utm_campaign": "summer"
+    },
+    "locale": "en-US",
+    "duration_ms": 21.02,
+    "status_code": 200,
+    "route": "app_serialnumber_index",
+    "memory_usage_bytes": 4194304,
+    "auth": "anon",
+    "content_type": "text\/html; charset=UTF-8",
+    "response_size_bytes": 45423,
+    "php_warnings": {
+        "notice": 0,
+        "warning": 0,
+        "deprecated": 0,
+        "error": 0
+    }
 }
 ```
 

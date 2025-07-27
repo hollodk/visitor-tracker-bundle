@@ -2,6 +2,7 @@
 
 namespace Beast\VisitorTrackerBundle\EventSubscriber;
 
+use Beast\VisitorTrackerBundle\Service\LightweightErrorCollector;
 use Beast\VisitorTrackerBundle\Service\VisitorLogBuffer;
 use Beast\VisitorTrackerBundle\Service\VisitorSettings;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -10,9 +11,11 @@ use Symfony\Component\HttpKernel\KernelEvents;
 
 class VisitorLoggerSubscriber implements EventSubscriberInterface
 {
-    public function __construct(private VisitorLogBuffer $buffer, private VisitorSettings $settings)
-    {
-    }
+    public function __construct(
+        private VisitorLogBuffer $buffer,
+        private VisitorSettings $settings,
+        private LightweightErrorCollector $errorCollector
+    ) {}
 
     public function onKernelRequest(RequestEvent $event): void
     {
@@ -21,6 +24,8 @@ class VisitorLoggerSubscriber implements EventSubscriberInterface
         if (!$event->isMainRequest() || str_starts_with($request->getPathInfo(), '/_')) {
             return;
         }
+
+        $this->errorCollector->register();
 
         $ip = $request->getClientIp();
         $ua = $request->headers->get('User-Agent', '');

@@ -2,6 +2,7 @@
 
 namespace Beast\VisitorTrackerBundle\EventSubscriber;
 
+use Beast\VisitorTrackerBundle\Service\LightweightErrorCollector;
 use Beast\VisitorTrackerBundle\Service\VisitorLogBuffer;
 use Beast\VisitorTrackerBundle\Service\VisitorLogConfig;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -16,7 +17,9 @@ class VisitorPerformanceSubscriber implements EventSubscriberInterface
     public function __construct(
         private readonly VisitorLogBuffer $buffer,
         private VisitorLogConfig $config,
-        private readonly ?TokenStorageInterface $tokenStorage = null
+        private readonly ?TokenStorageInterface $tokenStorage = null,
+        private readonly LightweightErrorCollector $errorCollector
+
     ) {}
 
     public function onKernelRequest(RequestEvent $event): void
@@ -44,7 +47,9 @@ class VisitorPerformanceSubscriber implements EventSubscriberInterface
         $visitorId = sha1(($ip ?? '') . $ua);
         $uri = $request->getRequestUri();
 
-        $this->buffer->updateLastEntry(function (array $entry) use ($request, $response, $duration) {
+        $counts = $this->errorCollector->getCounts();
+
+        $this->buffer->updateLastEntry(function (array $entry) use ($request, $response, $duration, $counts) {
             $entry['duration_ms'] = $duration;
             $entry['status_code'] = $response instanceof Response ? $response->getStatusCode() : null;
             $entry['route'] = $request->attributes->get('_route');
@@ -52,6 +57,7 @@ class VisitorPerformanceSubscriber implements EventSubscriberInterface
             $entry['auth'] = $this->tokenStorage?->getToken()?->getUser() ? 'user' : 'anon';
             $entry['content_type'] = $response->headers->get('Content-Type');
             $entry['response_size_bytes'] = strlen($response->getContent() ?? '');
+            $entry['php_warnings'] = $counts;
 
             return $entry;
         });
